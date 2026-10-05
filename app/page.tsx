@@ -300,7 +300,7 @@ export default function StandupDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <div className={`${theme === "dark" ? "dark" : ""} min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 transition-colors duration-200`}>
       <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-6">
         
         {/* Top Header */}
@@ -330,17 +330,23 @@ export default function StandupDashboard() {
             <button
               onClick={toggleTheme}
               title={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 transition-all flex items-center gap-2 text-xs font-semibold shadow-sm"
+              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 transition-all flex items-center gap-2 text-xs font-semibold shadow-sm"
             >
               {theme === "light" ? (
                 <>
-                  <Moon className="w-4 h-4 text-indigo-600" />
-                  <span className="hidden sm:inline">Dark Mode</span>
+                  <Sun className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  <span>Light Mode</span>
+                  <span className="w-7 h-4 rounded-full bg-slate-300 relative inline-flex items-center p-0.5 ml-1">
+                    <span className="w-3 h-3 rounded-full bg-white transition-transform translate-x-0" />
+                  </span>
                 </>
               ) : (
                 <>
-                  <Sun className="w-4 h-4 text-amber-400" />
-                  <span className="hidden sm:inline">Light Mode</span>
+                  <Moon className="w-4 h-4 text-indigo-400 fill-indigo-400" />
+                  <span>Dark Mode</span>
+                  <span className="w-7 h-4 rounded-full bg-indigo-600 relative inline-flex items-center p-0.5 ml-1">
+                    <span className="w-3 h-3 rounded-full bg-white transition-transform translate-x-3" />
+                  </span>
                 </>
               )}
             </button>

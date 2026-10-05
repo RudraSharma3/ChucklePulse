@@ -77,9 +77,98 @@ export function buildStandupPromptCard(params: {
 }
 
 /**
+ * Builds an interactive Hours Prompt Card when an employee submitted tasks without hours
+ */
+export function buildHoursRequestCard(params: {
+  userName: string;
+  tasks: string;
+  project: string;
+}) {
+  return {
+    cardsV2: [
+      {
+        cardId: `hours-prompt-${Date.now()}`,
+        card: {
+          header: {
+            title: "⏱️ Hours Required",
+            subtitle: `Awesome update, ${params.userName}! How many hours for today?`,
+            imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
+            imageType: "CIRCLE"
+          },
+          sections: [
+            {
+              widgets: [
+                {
+                  textParagraph: {
+                    text: `📝 <b>Tasks Recorded:</b> ${params.tasks}`
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `📁 <b>Initiative:</b> ${params.project}`
+                  }
+                },
+                {
+                  buttonList: {
+                    buttons: [
+                      {
+                        text: "4.0 hrs",
+                        onClick: {
+                          action: {
+                            function: "submitHours",
+                            parameters: [{ key: "hours", value: "4.0" }]
+                          }
+                        }
+                      },
+                      {
+                        text: "6.0 hrs",
+                        onClick: {
+                          action: {
+                            function: "submitHours",
+                            parameters: [{ key: "hours", value: "6.0" }]
+                          }
+                        }
+                      },
+                      {
+                        text: "7.5 hrs",
+                        onClick: {
+                          action: {
+                            function: "submitHours",
+                            parameters: [{ key: "hours", value: "7.5" }]
+                          }
+                        }
+                      },
+                      {
+                        text: "8.0 hrs",
+                        onClick: {
+                          action: {
+                            function: "submitHours",
+                            parameters: [{ key: "hours", value: "8.0" }]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: "<i>👉 Tap an hour button above or reply directly with any number (e.g. \"6.5h\", \"5 hours\").</i>"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  };
+}
+
+/**
  * Builds an interactive Standup Confirmation Card v2
  */
 export function buildStandupConfirmationCard(params: {
+
   employeeName: string;
   project: string;
   tasks: string;

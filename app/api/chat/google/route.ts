@@ -3,6 +3,7 @@ import {
   formatChatResponse,
   buildStandupPromptCard,
   buildStandupConfirmationCard,
+  buildHoursRequestCard,
   buildInteractiveCard,
   buildSuccessCard
 } from '@/lib/googleChatHelper';
@@ -100,7 +101,6 @@ export async function POST(req: NextRequest) {
     } catch (e) {}
   }
 
-
   try {
     // -------------------------------------------------------------
     // EVENT 1: ADDED TO SPACE / ONBOARDING
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     }
 
     // -------------------------------------------------------------
-    // EVENT 2: CARD CLICKED / FORM SUBMIT
+    // EVENT 2: CARD CLICKED / FORM SUBMIT / HOUR BUTTONS
     // -------------------------------------------------------------
     if (eventType === 'CARD_CLICKED') {
       const paramsMap: Record<string, string> = {};
@@ -131,6 +131,44 @@ export async function POST(req: NextRequest) {
       parseParams(event.action?.parameters);
       parseParams(event.chat?.buttonClickedPayload?.action?.parameters);
 
+      // Handle 1-Click Hour Selection Button
+      if (paramsMap.hours) {
+        const selectedHours = parseFloat(paramsMap.hours);
+        const draft = db.getPendingDraft(userEmail);
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+        const record: StandupRecord = {
+          id: "std_" + Date.now(),
+          name: userName,
+          email: userEmail || "team@bytepx.com",
+          dept: "Engineering",
+          tasks: draft ? draft.tasks : "General tasks",
+          hours: selectedHours,
+          project: draft ? draft.project : "General Tasks",
+          blocker: draft ? draft.blocker : "None",
+          date: now.toISOString().slice(0, 10),
+          time: timeStr,
+          source: "Google Chat 1:1 Bot (Interactive)"
+        };
+
+        db.saveStandup(record);
+        db.clearPendingDraft(userEmail);
+
+        const confirmationCard = buildStandupConfirmationCard({
+          employeeName: record.name,
+          project: record.project,
+          tasks: record.tasks,
+          hours: record.hours,
+          blocker: record.blocker,
+          time: timeStr
+        });
+
+        return chatJson(formatChatResponse(confirmationCard, { isCardAction: true, isAddOn }));
+      }
+
+      // Handle other custom form inputs
       const formInputs =
         event.commonEventObject?.formInputs ??
         event.action?.formInputs ??
@@ -140,8 +178,6 @@ export async function POST(req: NextRequest) {
       const itemId = paramsMap.itemId || 'general';
       const fieldName = paramsMap.inputFieldName || `input_${itemId}`;
       const submittedValue = extractInputValue(formInputs[fieldName]);
-
-      console.log(`[Card Click] Item: ${itemId}, Value: ${submittedValue}, User: ${userEmail}`);
 
       const confirmationCard = buildSuccessCard(
         `Thank you ${userName}! Your update for item \`${itemId}\` was submitted: **${submittedValue || 'Completed'}**.`
@@ -190,22 +226,71 @@ export async function POST(req: NextRequest) {
       return chatJson(formatChatResponse(interactiveCard, { isAddOn }));
     }
 
-    // Case 3C: Standup Submission -> Intelligent NLP Parsing & Database Logging
+    // Parse the incoming message
     const parsed = parseStandupMessage(cleanText);
-    const employees = db.getEmployees();
-    const matched = employees.find(e =>
-      (userEmail && e.email.toLowerCase() === userEmail.toLowerCase()) ||
-      e.name.toLowerCase() === userName.toLowerCase()
-    );
+    const existingDraft = db.getPendingDraft(userEmail);
 
+    // Case 3C: User had a pending draft and is now replying with hours (e.g. "6.5h", "7.5", "8 hours")
+    if (existingDraft && (parsed.isOnlyHours || parsed.hasExplicitHours)) {
+      const finalHours = parsed.hours > 0 ? parsed.hours : 7.5;
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      const record: StandupRecord = {
+        id: "std_" + Date.now(),
+        name: userName,
+        email: userEmail || "team@bytepx.com",
+        dept: "Engineering",
+        tasks: existingDraft.tasks,
+        hours: finalHours,
+        project: existingDraft.project,
+        blocker: existingDraft.blocker,
+        date: now.toISOString().slice(0, 10),
+        time: timeStr,
+        source: "Google Chat 1:1 Bot",
+        rawText: cleanText
+      };
+
+      db.saveStandup(record);
+      db.clearPendingDraft(userEmail);
+
+      const confirmationCard = buildStandupConfirmationCard({
+        employeeName: record.name,
+        project: record.project,
+        tasks: record.tasks,
+        hours: record.hours,
+        blocker: record.blocker,
+        time: timeStr
+      });
+
+      return chatJson(formatChatResponse(confirmationCard, { isAddOn }));
+    }
+
+    // Case 3D: User submitted tasks WITHOUT hours (and not unassigned/leave) -> Ask ONLY for hours
+    if (!parsed.hasExplicitHours && !parsed.isAwaitingTask && !parsed.isOnLeave) {
+      db.savePendingDraft(userEmail, {
+        tasks: parsed.tasks,
+        project: parsed.project,
+        blocker: parsed.blocker
+      });
+
+      const hoursPromptCard = buildHoursRequestCard({
+        userName: firstName,
+        tasks: parsed.tasks,
+        project: parsed.project
+      });
+
+      return chatJson(formatChatResponse(hoursPromptCard, { isAddOn }));
+    }
+
+    // Case 3E: Full Standup with Hours or Special Status -> Log Immediately
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const record: StandupRecord = {
       id: "std_" + Date.now(),
-      employeeId: matched ? matched.id : null,
-      name: matched ? matched.name : userName,
-      email: matched ? matched.email : (userEmail || "team@bytepx.com"),
-      dept: matched ? matched.dept : "Engineering",
+      name: userName,
+      email: userEmail || "team@bytepx.com",
+      dept: "Engineering",
       tasks: parsed.tasks,
       hours: parsed.hours,
       project: parsed.project,
@@ -216,8 +301,9 @@ export async function POST(req: NextRequest) {
       rawText: cleanText
     };
 
-    // Save check-in
+    // Save check-in and clear any draft
     db.saveStandup(record);
+    db.clearPendingDraft(userEmail);
 
     // Return Standup Confirmation Card
     const confirmationCard = buildStandupConfirmationCard({

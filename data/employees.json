@@ -1,0 +1,19 @@
+[
+  {
+    "id": "emp_1790841511100",
+    "name": "Tanmay Jain",
+    "email": "tanmay.jain@bytepx.com",
+    "dept": "IT",
+    "role": "DE Intern",
+    "webhookUrl": "",
+    "createdAt": "2026-10-01T07:58:31.100Z"
+  },
+  {
+    "id": "emp_1790846454029",
+    "name": "Rudra Sharma",
+    "email": "rudra@bytepx.com",
+    "dept": "IT",
+    "role": "Associate ML Engineer",
+    "createdAt": "2026-10-01T09:20:54.029Z"
+  }
+]

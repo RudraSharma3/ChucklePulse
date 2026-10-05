@@ -1,0 +1,10 @@
+{
+  "companyName": "My Company",
+  "standupStartTime": "10:00",
+  "standupEndTime": "10:30",
+  "googleChatWebhookUrl": "",
+  "botPrompt": "Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?",
+  "gifTag": "work-coffee",
+  "theme": "dark",
+  "appsScriptUrl": "https://script.google.com/macros/s/AKfycbznS95B3hrLjJYDozlrdQ1geq2UFDDilabLwLWDm-_SKPeuh1RY_dYAbZKLMlNwWkni/exec"
+}

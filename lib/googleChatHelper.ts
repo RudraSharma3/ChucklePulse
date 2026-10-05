@@ -28,6 +28,20 @@ export function formatChatResponse(
   };
 }
 
+export function getBotEndpointUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    const base = process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '');
+    return base.endsWith('/api/chat/google') ? base : `${base}/api/chat/google`;
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/chat/google`;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api/chat/google`;
+  }
+  return "https://chuckle-pulse.vercel.app/api/chat/google";
+}
+
 /**
  * Builds an interactive Standup Prompt Card v2
  */
@@ -76,6 +90,8 @@ export function buildHoursRequestCard(params: {
   tasks: string;
   project: string;
 }) {
+  const endpointUrl = getBotEndpointUrl();
+
   return {
     cardsV2: [
       {
@@ -107,7 +123,7 @@ export function buildHoursRequestCard(params: {
                         text: "4.0 hrs",
                         onClick: {
                           action: {
-                            function: "submitHours",
+                            function: endpointUrl,
                             parameters: [
                               { key: "actionName", value: "submitHours" },
                               { key: "hours", value: "4.0" }
@@ -119,7 +135,7 @@ export function buildHoursRequestCard(params: {
                         text: "6.0 hrs",
                         onClick: {
                           action: {
-                            function: "submitHours",
+                            function: endpointUrl,
                             parameters: [
                               { key: "actionName", value: "submitHours" },
                               { key: "hours", value: "6.0" }
@@ -131,7 +147,7 @@ export function buildHoursRequestCard(params: {
                         text: "7.5 hrs",
                         onClick: {
                           action: {
-                            function: "submitHours",
+                            function: endpointUrl,
                             parameters: [
                               { key: "actionName", value: "submitHours" },
                               { key: "hours", value: "7.5" }
@@ -143,7 +159,7 @@ export function buildHoursRequestCard(params: {
                         text: "8.0 hrs",
                         onClick: {
                           action: {
-                            function: "submitHours",
+                            function: endpointUrl,
                             parameters: [
                               { key: "actionName", value: "submitHours" },
                               { key: "hours", value: "8.0" }
@@ -238,6 +254,8 @@ export function buildInteractiveCard(params: {
   subtitle?: string;
   items: Array<{ id: string; title: string; description: string }>;
 }) {
+  const endpointUrl = getBotEndpointUrl();
+
   return {
     cardsV2: [
       {
@@ -271,7 +289,7 @@ export function buildInteractiveCard(params: {
                       text: 'Submit Update',
                       onClick: {
                         action: {
-                          function: 'handleFormSubmit',
+                          function: endpointUrl,
                           parameters: [
                             { key: 'actionName', value: 'handleFormSubmit' },
                             { key: 'itemId', value: item.id },

@@ -70,12 +70,14 @@ export async function POST(req: NextRequest) {
   const userEmail =
     event.chat?.user?.email ??
     event.user?.email ??
+    event.commonEventObject?.userEmail ??
     event.chat?.messagePayload?.message?.sender?.email ??
     event.message?.sender?.email ??
     '';
   const userName =
     event.chat?.user?.displayName ??
     event.user?.displayName ??
+    event.commonEventObject?.userName ??
     event.chat?.messagePayload?.message?.sender?.displayName ??
     'Team Member';
   const firstName = userName.split(' ')[0];
@@ -120,20 +122,29 @@ export async function POST(req: NextRequest) {
         if (!source) return;
         if (Array.isArray(source)) {
           for (const item of source) {
-            if (item?.key && item?.value) paramsMap[item.key] = item.value;
+            if (item?.key && item?.value !== undefined) paramsMap[item.key] = String(item.value);
+            else if (item?.name && item?.value !== undefined) paramsMap[item.name] = String(item.value);
           }
         } else if (typeof source === 'object') {
-          Object.assign(paramsMap, source);
+          for (const [k, v] of Object.entries(source)) {
+            if (v !== null && typeof v === 'object' && 'value' in (v as any)) {
+              paramsMap[k] = String((v as any).value);
+            } else if (v !== null && v !== undefined) {
+              paramsMap[k] = String(v);
+            }
+          }
         }
       };
 
       parseParams(event.commonEventObject?.parameters);
       parseParams(event.action?.parameters);
       parseParams(event.chat?.buttonClickedPayload?.action?.parameters);
+      parseParams(event.parameters);
 
       // Handle 1-Click Hour Selection Button
-      if (paramsMap.hours) {
-        const selectedHours = parseFloat(paramsMap.hours);
+      const hoursParam = paramsMap.hours || paramsMap.hour || paramsMap.value;
+      if (hoursParam) {
+        const selectedHours = parseFloat(hoursParam);
         const draft = db.getPendingDraft(userEmail);
 
         const now = new Date();
@@ -154,7 +165,7 @@ export async function POST(req: NextRequest) {
         };
 
         db.saveStandup(record);
-        db.clearPendingDraft(userEmail);
+        if (userEmail) db.clearPendingDraft(userEmail);
 
         const confirmationCard = buildStandupConfirmationCard({
           employeeName: record.name,
@@ -167,6 +178,7 @@ export async function POST(req: NextRequest) {
 
         return chatJson(formatChatResponse(confirmationCard, { isCardAction: true, isAddOn }));
       }
+
 
       // Handle other custom form inputs
       const formInputs =

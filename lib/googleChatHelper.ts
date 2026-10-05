@@ -50,9 +50,7 @@ export function buildStandupPromptCard(params: {
         card: {
           header: {
             title: "⏰ BytePx Daily Standup",
-            subtitle: `Good morning ${params.userName}! Time to share today's mission.`,
-            imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-            imageType: "CIRCLE"
+            subtitle: `Good morning ${params.userName}! Time to share today's mission.`
           },
           sections: [
             {
@@ -91,9 +89,7 @@ export function buildHoursRequestCard(params: {
         card: {
           header: {
             title: "⏱️ Hours Required",
-            subtitle: `Awesome update, ${params.userName}! How many hours for today?`,
-            imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-            imageType: "CIRCLE"
+            subtitle: `Awesome update, ${params.userName}! How many hours for today?`
           },
           sections: [
             {
@@ -115,6 +111,7 @@ export function buildHoursRequestCard(params: {
                         text: "4.0 hrs",
                         onClick: {
                           action: {
+                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "4.0" }]
                           }
@@ -124,6 +121,7 @@ export function buildHoursRequestCard(params: {
                         text: "6.0 hrs",
                         onClick: {
                           action: {
+                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "6.0" }]
                           }
@@ -133,6 +131,7 @@ export function buildHoursRequestCard(params: {
                         text: "7.5 hrs",
                         onClick: {
                           action: {
+                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "7.5" }]
                           }
@@ -142,6 +141,7 @@ export function buildHoursRequestCard(params: {
                         text: "8.0 hrs",
                         onClick: {
                           action: {
+                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "8.0" }]
                           }
@@ -168,7 +168,6 @@ export function buildHoursRequestCard(params: {
  * Builds an interactive Standup Confirmation Card v2
  */
 export function buildStandupConfirmationCard(params: {
-
   employeeName: string;
   project: string;
   tasks: string;
@@ -191,9 +190,7 @@ export function buildStandupConfirmationCard(params: {
         card: {
           header: {
             title: `✅ Standup Logged: ${params.project}`,
-            subtitle: `Recorded for ${params.employeeName.split(' ')[0]} at ${params.time}`,
-            imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-            imageType: "CIRCLE"
+            subtitle: `Recorded for ${params.employeeName.split(' ')[0]} at ${params.time}`
           },
           sections: [
             {
@@ -226,7 +223,6 @@ export function buildStandupConfirmationCard(params: {
     ]
   };
 }
-
 
 /**
  * Builds an interactive task review card with action buttons
@@ -267,6 +263,7 @@ export function buildInteractiveCard(params: {
                       text: 'Submit Update',
                       onClick: {
                         action: {
+                          actionMethodName: 'handleFormSubmit',
                           function: 'handleFormSubmit',
                           parameters: [
                             { key: 'actionName', value: 'handleFormSubmit' },

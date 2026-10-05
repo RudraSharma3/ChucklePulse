@@ -295,6 +295,18 @@ function saveStandupRecord(record) {
 
     props.setProperty("STANDUP_RECORDS", JSON.stringify(list.slice(0, 100)));
     console.log(`💾 Saved standup record for ${record.name} (${record.email})`);
+
+    // Sync to Vercel Dashboard in real-time
+    try {
+      UrlFetchApp.fetch("https://chuckle-pulse.vercel.app/api/standups", {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(record),
+        muteHttpExceptions: true
+      });
+    } catch (apiErr) {
+      console.warn("Vercel sync warning:", apiErr.message);
+    }
   } catch (e) {
     console.warn("saveStandupRecord warning:", e.message);
   }

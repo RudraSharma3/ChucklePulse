@@ -41,7 +41,7 @@ const NUDGE_PROMPTS = [
 ];
 
 /**
- * ⚡ ONE-TIME SELF TEST
+ * ⚡ ONE-TIME SELF TEST & PERMISSION AUTHORIZATION
  */
 function testRun() {
   console.log("🚀 Running BytePx Standup Bot Self-Test...");
@@ -51,6 +51,9 @@ function testRun() {
   
   const token = ScriptApp.getOAuthToken();
   console.log("✅ OAuth Token generated successfully:", token ? "Token Active" : "No Token");
+
+  // Auto-discover any active spaces/DMs
+  autoDiscoverAllSpaces();
 
   const allProps = props.getProperties();
   let dmCount = 0;
@@ -69,6 +72,39 @@ function testRun() {
   console.log("🎉 Self-Test Passed! The bot is fully authorized.");
   return { status: "OK", registeredDMs: dmCount, settings: settings };
 }
+
+/**
+ * 🔍 Auto-discovers all spaces and 1:1 DMs where the bot is added
+ */
+function autoDiscoverAllSpaces() {
+  console.log("🔍 Scanning Google Chat API for active DM spaces...");
+  try {
+    const token = ScriptApp.getOAuthToken();
+    const res = UrlFetchApp.fetch("https://chat.googleapis.com/v1/spaces", {
+      headers: { Authorization: "Bearer " + token },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() === 200) {
+      const data = JSON.parse(res.getContentText());
+      const spaces = data.spaces || [];
+      const props = PropertiesService.getScriptProperties();
+      let added = 0;
+      spaces.forEach(sp => {
+        if (sp.name) {
+          const spaceKey = "DM_" + (sp.displayName ? sp.displayName.toLowerCase().replace(/[^a-z0-9]/g, '_') : sp.name.replace(/[^a-zA-Z0-9]/g, '_'));
+          props.setProperty(spaceKey, sp.name);
+          added++;
+          console.log(`📌 Auto-discovered space: ${sp.name} (${sp.displayName || 'Direct Message'})`);
+        }
+      });
+      return { success: true, count: spaces.length, added: added };
+    }
+  } catch (e) {
+    console.warn("autoDiscoverAllSpaces error:", e.message);
+  }
+  return { success: false };
+}
+
 
 /**
  * ⚙️ Helper: Fetch dynamic settings from Vercel Dashboard with fallback

@@ -82,6 +82,15 @@ export async function POST(req: NextRequest) {
     'Team Member';
   const firstName = userName.split(' ')[0];
 
+  const userKey =
+    userEmail ||
+    event.user?.name ||
+    event.chat?.user?.name ||
+    event.message?.sender?.name ||
+    event.chat?.messagePayload?.message?.sender?.name ||
+    userName ||
+    'default_user';
+
   const spaceName =
     event.space?.name ??
     event.chat?.space?.name ??
@@ -145,7 +154,7 @@ export async function POST(req: NextRequest) {
       const hoursParam = paramsMap.hours || paramsMap.hour || paramsMap.value;
       if (hoursParam) {
         const selectedHours = parseFloat(hoursParam);
-        const draft = db.getPendingDraft(userEmail);
+        const draft = db.getPendingDraft(userKey);
 
         const now = new Date();
         const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -165,7 +174,7 @@ export async function POST(req: NextRequest) {
         };
 
         db.saveStandup(record);
-        if (userEmail) db.clearPendingDraft(userEmail);
+        db.clearPendingDraft(userKey);
 
         const confirmationCard = buildStandupConfirmationCard({
           employeeName: record.name,
@@ -240,7 +249,7 @@ export async function POST(req: NextRequest) {
 
     // Parse the incoming message
     const parsed = parseStandupMessage(cleanText);
-    const existingDraft = db.getPendingDraft(userEmail);
+    const existingDraft = db.getPendingDraft(userKey);
 
     // Case 3C: User had a pending draft and is now replying with hours (e.g. "6.5h", "7.5", "8 hours")
     if (existingDraft && (parsed.isOnlyHours || parsed.hasExplicitHours)) {
@@ -264,7 +273,7 @@ export async function POST(req: NextRequest) {
       };
 
       db.saveStandup(record);
-      db.clearPendingDraft(userEmail);
+      db.clearPendingDraft(userKey);
 
       const confirmationCard = buildStandupConfirmationCard({
         employeeName: record.name,
@@ -280,7 +289,7 @@ export async function POST(req: NextRequest) {
 
     // Case 3D: User submitted tasks WITHOUT hours (and not unassigned/leave) -> Ask ONLY for hours
     if (!parsed.hasExplicitHours && !parsed.isAwaitingTask && !parsed.isOnLeave) {
-      db.savePendingDraft(userEmail, {
+      db.savePendingDraft(userKey, {
         tasks: parsed.tasks,
         project: parsed.project,
         blocker: parsed.blocker
@@ -315,7 +324,7 @@ export async function POST(req: NextRequest) {
 
     // Save check-in and clear any draft
     db.saveStandup(record);
-    db.clearPendingDraft(userEmail);
+    db.clearPendingDraft(userKey);
 
     // Return Standup Confirmation Card
     const confirmationCard = buildStandupConfirmationCard({

@@ -4,6 +4,7 @@ import {
   buildStandupPromptCard,
   buildStandupConfirmationCard,
   buildHoursRequestCard,
+  buildRemainingHoursCard,
   buildInteractiveCard,
   buildSuccessCard,
   formatLocalTime,
@@ -159,16 +160,95 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Handle 1-Click Hour Selection Button
+      const now = new Date();
+      const timeStr = formatLocalTime(now);
+      const dateStr = formatLocalDate(now);
+
+      // Branch 2A: Handle Remaining Hours Selection (submitRemaining)
+      if (paramsMap.actionName === 'submitRemaining') {
+        const draft = db.getPendingDraft(userKey);
+        const buttonType = paramsMap.type || 'same_project';
+        const remHours = parseFloat(paramsMap.hours || '3.0') || 3.0;
+        const primaryHrs = draft && draft.hours ? draft.hours : 5.0;
+        const primaryProj = draft ? draft.project : 'General Tasks';
+        const primaryTasks = draft ? draft.tasks : 'General tasks';
+
+        let finalProject = primaryProj;
+        let finalHours = 8.0;
+        let finalTasks = primaryTasks;
+        let finalBlocker = draft ? draft.blocker : 'None';
+
+        if (buttonType === 'same_project') {
+          finalHours = 8.0;
+          finalTasks = `${primaryTasks} (Full Day: 8.0 hrs)`;
+        } else if (buttonType === 'awaiting') {
+          finalHours = 8.0;
+          finalProject = `${primaryProj} + Standby`;
+          finalTasks = `${primaryTasks} (${primaryHrs} hrs), Awaiting Tasks (${remHours} hrs)`;
+          finalBlocker = `Awaiting task allocation for ${remHours} hrs`;
+        } else if (buttonType === 'half_day') {
+          finalHours = primaryHrs;
+          finalTasks = `${primaryTasks} (Half-Day Leave)`;
+          finalBlocker = 'Half-Day Leave';
+        }
+
+        const record: StandupRecord = {
+          id: "std_" + Date.now(),
+          name: userName,
+          email: userEmail || "team@bytepx.com",
+          dept: "Engineering",
+          tasks: finalTasks,
+          hours: finalHours,
+          project: finalProject,
+          blocker: finalBlocker,
+          date: dateStr,
+          time: timeStr,
+          source: "Google Chat 1:1 Bot (Interactive)"
+        };
+
+        db.saveStandup(record);
+        db.clearPendingDraft(userKey);
+
+        const confirmationCard = buildStandupConfirmationCard({
+          employeeName: record.name,
+          project: record.project,
+          tasks: record.tasks,
+          hours: record.hours,
+          blocker: record.blocker,
+          time: timeStr
+        });
+
+        return chatJson(formatChatResponse(confirmationCard, { isCardAction: true }));
+      }
+
+      // Branch 2B: Handle Initial 1-Click Hour Selection (submitHours)
       const hoursParam = paramsMap.hours || paramsMap.hour || paramsMap.value;
       if (hoursParam) {
         const parsedFloat = parseFloat(hoursParam.trim());
-        const selectedHours = Number.isFinite(parsedFloat) && parsedFloat >= 0 && parsedFloat <= 24 ? parsedFloat : 7.5;
+        const selectedHours = Number.isFinite(parsedFloat) && parsedFloat >= 0 && parsedFloat <= 24 ? parsedFloat : 8.0;
         const draft = db.getPendingDraft(userKey);
 
-        const now = new Date();
-        const timeStr = formatLocalTime(now);
-        const dateStr = formatLocalDate(now);
+        // If selected hours is less than 8.0, prompt for remaining capacity!
+        if (selectedHours < 8.0) {
+          const remaining = +(8.0 - selectedHours).toFixed(1);
+          db.savePendingDraft(userKey, {
+            tasks: draft ? draft.tasks : "General tasks",
+            project: draft ? draft.project : "General Tasks",
+            blocker: draft ? draft.blocker : "None",
+            hours: selectedHours,
+            remainingHours: remaining
+          });
+
+          const capacityCard = buildRemainingHoursCard({
+            userName: firstName,
+            project: draft ? draft.project : "General Tasks",
+            tasks: draft ? draft.tasks : "General tasks",
+            loggedHours: selectedHours,
+            remainingHours: remaining
+          });
+
+          return chatJson(formatChatResponse(capacityCard, { isCardAction: true }));
+        }
 
         const record: StandupRecord = {
           id: "std_" + Date.now(),
@@ -260,13 +340,90 @@ export async function POST(req: NextRequest) {
     // Parse the incoming message
     const parsed = parseStandupMessage(cleanText);
     const existingDraft = db.getPendingDraft(userKey);
+    const now = new Date();
+    const timeStr = formatLocalTime(now);
+    const dateStr = formatLocalDate(now);
 
-    // Case 3C: User had a pending draft and is now replying with hours (e.g. "6.5h", "7.5", "8 hours")
+    // Case 3C: User had a pending draft with PARTIAL hours (e.g. 5.0h on Project X) and is now replying for the rest
+    if (existingDraft && existingDraft.hours && existingDraft.hours > 0 && existingDraft.remainingHours && existingDraft.remainingHours > 0) {
+      let finalHours = 8.0;
+      let finalTasks = existingDraft.tasks;
+      let finalProject = existingDraft.project;
+      let finalBlocker = existingDraft.blocker;
+
+      if (/half\s+day|day\s+off|leave|taking\s+leave/i.test(lowerText)) {
+        finalHours = existingDraft.hours;
+        finalTasks = `${existingDraft.tasks} (Half-Day Leave)`;
+        finalBlocker = 'Half-Day Leave';
+      } else if (/awaiting|waiting|no\s+task|didnt\s+get|bench|free|no\s+work/i.test(lowerText)) {
+        finalHours = 8.0;
+        finalProject = `${existingDraft.project} + Standby`;
+        finalTasks = `${existingDraft.tasks} (${existingDraft.hours} hrs), Awaiting Tasks (${existingDraft.remainingHours} hrs)`;
+        finalBlocker = `Awaiting task allocation for ${existingDraft.remainingHours} hrs`;
+      } else {
+        const secondHours = parsed.hours > 0 ? parsed.hours : existingDraft.remainingHours;
+        const secondProject = parsed.project !== 'General Tasks' ? parsed.project : existingDraft.project;
+        finalHours = +(existingDraft.hours + secondHours).toFixed(1);
+        finalProject = secondProject === existingDraft.project ? existingDraft.project : `${existingDraft.project} & ${secondProject}`;
+        finalTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${parsed.tasks} (${secondHours}h)`;
+        finalBlocker = parsed.blocker !== 'None' ? parsed.blocker : existingDraft.blocker;
+      }
+
+      const record: StandupRecord = {
+        id: "std_" + Date.now(),
+        name: userName,
+        email: userEmail || "team@bytepx.com",
+        dept: "Engineering",
+        tasks: finalTasks,
+        hours: finalHours,
+        project: finalProject,
+        blocker: finalBlocker,
+        date: dateStr,
+        time: timeStr,
+        source: "Google Chat 1:1 Bot",
+        rawText: cleanText
+      };
+
+      db.saveStandup(record);
+      db.clearPendingDraft(userKey);
+
+      const confirmationCard = buildStandupConfirmationCard({
+        employeeName: record.name,
+        project: record.project,
+        tasks: record.tasks,
+        hours: record.hours,
+        blocker: record.blocker,
+        time: timeStr
+      });
+
+      return chatJson(formatChatResponse(confirmationCard));
+    }
+
+    // Case 3D: User had a pending 0-hours draft (tasks were entered earlier) and is now replying with hours
     if (existingDraft && (parsed.isOnlyHours || parsed.hasExplicitHours)) {
-      const finalHours = parsed.hours > 0 ? parsed.hours : 7.5;
-      const now = new Date();
-      const timeStr = formatLocalTime(now);
-      const dateStr = formatLocalDate(now);
+      const providedHours = parsed.hours > 0 ? parsed.hours : 8.0;
+
+      // If provided hours < 8.0, prompt for remaining capacity!
+      if (providedHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+        const remaining = +(8.0 - providedHours).toFixed(1);
+        db.savePendingDraft(userKey, {
+          tasks: existingDraft.tasks,
+          project: existingDraft.project,
+          blocker: existingDraft.blocker,
+          hours: providedHours,
+          remainingHours: remaining
+        });
+
+        const capacityCard = buildRemainingHoursCard({
+          userName: firstName,
+          project: existingDraft.project,
+          tasks: existingDraft.tasks,
+          loggedHours: providedHours,
+          remainingHours: remaining
+        });
+
+        return chatJson(formatChatResponse(capacityCard));
+      }
 
       const record: StandupRecord = {
         id: "std_" + Date.now(),
@@ -274,7 +431,7 @@ export async function POST(req: NextRequest) {
         email: userEmail || "team@bytepx.com",
         dept: "Engineering",
         tasks: existingDraft.tasks,
-        hours: finalHours,
+        hours: providedHours,
         project: existingDraft.project,
         blocker: existingDraft.blocker,
         date: dateStr,
@@ -298,12 +455,14 @@ export async function POST(req: NextRequest) {
       return chatJson(formatChatResponse(confirmationCard));
     }
 
-    // Case 3D: User submitted tasks WITHOUT hours (and not unassigned/leave) -> Ask ONLY for hours
+    // Case 3E: User submitted tasks WITHOUT hours (and not unassigned/leave) -> Ask for hours
     if (!parsed.hasExplicitHours && !parsed.isAwaitingTask && !parsed.isOnLeave) {
       db.savePendingDraft(userKey, {
         tasks: parsed.tasks,
         project: parsed.project,
-        blocker: parsed.blocker
+        blocker: parsed.blocker,
+        hours: 0,
+        remainingHours: 8.0
       });
 
       const hoursPromptCard = buildHoursRequestCard({
@@ -315,10 +474,29 @@ export async function POST(req: NextRequest) {
       return chatJson(formatChatResponse(hoursPromptCard));
     }
 
-    // Case 3E: Full Standup with Hours or Special Status -> Log Immediately
-    const now = new Date();
-    const timeStr = formatLocalTime(now);
-    const dateStr = formatLocalDate(now);
+    // Case 3F: User submitted tasks WITH hours (e.g. "i am working on project x for 5 hours")
+    if (parsed.hours < 8.0 && parsed.hours > 0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const remaining = +(8.0 - parsed.hours).toFixed(1);
+      db.savePendingDraft(userKey, {
+        tasks: parsed.tasks,
+        project: parsed.project,
+        blocker: parsed.blocker,
+        hours: parsed.hours,
+        remainingHours: remaining
+      });
+
+      const capacityCard = buildRemainingHoursCard({
+        userName: firstName,
+        project: parsed.project,
+        tasks: parsed.tasks,
+        loggedHours: parsed.hours,
+        remainingHours: remaining
+      });
+
+      return chatJson(formatChatResponse(capacityCard));
+    }
+
+    // Case 3G: Full Standup with >= 8 Hours or Special Status -> Log Immediately
     const record: StandupRecord = {
       id: "std_" + Date.now(),
       name: userName,

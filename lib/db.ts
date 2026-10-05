@@ -70,7 +70,23 @@ export const db = {
     return readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
   },
   saveEmployees: (employees: Employee[]): boolean => {
-    return writeFile(EMP_FILE, employees);
+    const success = writeFile(EMP_FILE, employees);
+    if (success) {
+      db.syncEmployeesToCloud(employees);
+    }
+    return success;
+  },
+  syncEmployeesToCloud: (employees: Employee[]) => {
+    try {
+      const settings = db.getSettings();
+      if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
+        fetch(settings.appsScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save_employees', employees })
+        }).catch(() => {});
+      }
+    } catch (e) {}
   },
   getStandups: (): StandupRecord[] => {
     return readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
@@ -84,31 +100,47 @@ export const db = {
       list.unshift(record);
     }
     writeFile(STD_FILE, list);
+    db.syncStandupToCloud(record);
     return list;
+  },
+  syncStandupToCloud: (record: StandupRecord) => {
+    try {
+      const settings = db.getSettings();
+      if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
+        fetch(settings.appsScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save_standup', record })
+        }).catch(() => {});
+      }
+    } catch (e) {}
   },
   registerEmployeeSpace: (email: string, spaceName: string, name?: string): Employee[] => {
     if (!email || !spaceName) return db.getEmployees();
     const list = db.getEmployees();
     const idx = list.findIndex(e => e.email.toLowerCase() === email.toLowerCase());
+    let targetEmp: Employee;
     if (idx >= 0) {
       list[idx].webhookUrl = spaceName;
       if (name && (!list[idx].name || list[idx].name === 'Team Member')) list[idx].name = name;
+      targetEmp = list[idx];
     } else {
-      list.push({
+      targetEmp = {
         id: 'emp_' + Date.now(),
         name: name || email.split('@')[0],
         email: email,
         dept: 'Engineering',
         role: 'Team Member',
         webhookUrl: spaceName
-      });
+      };
+      list.push(targetEmp);
     }
     db.saveEmployees(list);
     return list;
   },
-  getPendingDraft: (userKey?: string): { tasks: string; project: string; blocker: string; date: string } | null => {
+  getPendingDraft: (userKey?: string): { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string } | null => {
     if (!userKey) return null;
-    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; date: string }>>(
+    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string }>>(
       path.join(DATA_DIR, 'drafts.json'),
       'drafts.json',
       {}
@@ -119,16 +151,20 @@ export const db = {
     }
     return null;
   },
-  savePendingDraft: (userKey: string, draft: { tasks: string; project: string; blocker: string }): void => {
+  savePendingDraft: (userKey: string, draft: { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number }): void => {
     if (!userKey) return;
     const filePath = path.join(DATA_DIR, 'drafts.json');
-    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; date: string }>>(
+    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string }>>(
       filePath,
       'drafts.json',
       {}
     );
     drafts[userKey.toLowerCase()] = {
-      ...draft,
+      tasks: draft.tasks,
+      project: draft.project,
+      blocker: draft.blocker,
+      hours: draft.hours ?? 0,
+      remainingHours: draft.remainingHours ?? 0,
       date: new Date().toISOString().slice(0, 10)
     };
     writeFile(filePath, drafts);
@@ -136,7 +172,7 @@ export const db = {
   clearPendingDraft: (userKey?: string): void => {
     if (!userKey) return;
     const filePath = path.join(DATA_DIR, 'drafts.json');
-    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; date: string }>>(
+    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string }>>(
       filePath,
       'drafts.json',
       {}

@@ -3,7 +3,37 @@ import { db } from "@/lib/db";
 import { Employee } from "@/lib/types";
 
 export async function GET() {
-  const employees = db.getEmployees();
+  let employees = db.getEmployees();
+  
+  // If on Vercel or freshly deployed, try hydrating extra employees from Apps Script cloud storage
+  try {
+    const settings = db.getSettings();
+    if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
+      const url = settings.appsScriptUrl.includes('?')
+        ? `${settings.appsScriptUrl}&action=get_employees`
+        : `${settings.appsScriptUrl}?action=get_employees`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        const cloudEmployees: Employee[] = await res.json();
+        if (Array.isArray(cloudEmployees) && cloudEmployees.length > 0) {
+          const empMap = new Map<string, Employee>();
+          employees.forEach(e => empMap.set(e.email.toLowerCase(), e));
+          cloudEmployees.forEach(e => {
+            if (e.email) {
+              const existing = empMap.get(e.email.toLowerCase());
+              empMap.set(e.email.toLowerCase(), { ...existing, ...e });
+            }
+          });
+          const merged = Array.from(empMap.values());
+          if (merged.length !== employees.length) {
+            db.saveEmployees(merged);
+            employees = merged;
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
   return NextResponse.json(employees);
 }
 
@@ -21,12 +51,13 @@ export async function POST(req: NextRequest) {
       email: body.email.trim().toLowerCase(),
       dept: body.dept ? body.dept.trim() : "Engineering",
       role: body.role ? body.role.trim() : "Team Member",
+      webhookUrl: body.webhookUrl || "",
       createdAt: body.createdAt || new Date().toISOString()
     };
 
-    const idx = employees.findIndex(e => e.id === newEmp.id);
+    const idx = employees.findIndex(e => e.email.toLowerCase() === newEmp.email.toLowerCase() || e.id === newEmp.id);
     if (idx >= 0) {
-      employees[idx] = newEmp;
+      employees[idx] = { ...employees[idx], ...newEmp };
     } else {
       employees.push(newEmp);
     }

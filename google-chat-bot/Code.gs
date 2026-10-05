@@ -242,7 +242,9 @@ function sendDirectMessageToAllEmployees(isNudge) {
   }
 
   const targetSpaces = [];
+  const addedSpaces = new Set();
 
+  // 1. Check local script properties
   for (const key in scriptProps) {
     if (key.startsWith("DM_") && scriptProps[key]) {
       const email = key.replace("DM_", "").toLowerCase();
@@ -253,9 +255,38 @@ function sendDirectMessageToAllEmployees(isNudge) {
           spaceName: scriptProps[key],
           email: email
         });
+        addedSpaces.add(scriptProps[key]);
       }
     }
   }
+
+  // 2. Also check Vercel DB employees for any recorded webhookUrl space IDs
+  try {
+    const empRes = UrlFetchApp.fetch(CONFIG.DASHBOARD_URL + "/api/employees", { muteHttpExceptions: true });
+    if (empRes.getResponseCode() === 200) {
+      const empList = JSON.parse(empRes.getContentText());
+      if (Array.isArray(empList)) {
+        empList.forEach(emp => {
+          if (emp.webhookUrl && !addedSpaces.has(emp.webhookUrl)) {
+            const email = (emp.email || "").toLowerCase();
+            if (!isNudge || !completedEmails.has(email)) {
+              targetSpaces.push({
+                key: "DM_" + email,
+                spaceName: emp.webhookUrl,
+                email: email
+              });
+              addedSpaces.add(emp.webhookUrl);
+              // Cache in script props
+              PropertiesService.getScriptProperties().setProperty("DM_" + email, emp.webhookUrl);
+            }
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch remote employee spaces:", e.message);
+  }
+
 
   let sent = 0;
   const errors = [];
@@ -554,10 +585,21 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
   }
 
+  if (action === "register_dm") {
+    const email = (e.parameter.email || "").toLowerCase();
+    const space = e.parameter.space || "";
+    if (email && space) {
+      PropertiesService.getScriptProperties().setProperty("DM_" + email, space);
+      console.log(`📌 Registered DM via webhook: ${email} -> ${space}`);
+      return ContentService.createTextOutput(JSON.stringify({ success: true, registered: email, space: space })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (action === "sync_schedule") {
     const result = syncScheduleWithDashboard();
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
   }
+
 
   if (action === "test") {
     const result = testRun();

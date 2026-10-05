@@ -15,6 +15,7 @@ export interface StandupRecord {
   email: string;
   dept: string;
   tasks: string;
+  taskList?: string[];
   hours: number;
   project: string;
   blocker: string;
@@ -43,6 +44,7 @@ export interface ProjectGroup {
     email: string;
     dept: string;
     tasks: string;
+    taskList?: string[];
     hours: number;
     blocker: string;
     time: string;

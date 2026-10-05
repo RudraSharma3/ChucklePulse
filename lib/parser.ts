@@ -5,6 +5,10 @@
 export function parseStandupMessage(text: string): {
   project: string;
   hours: number;
+  hasExplicitHours: boolean;
+  isOnlyHours: boolean;
+  isAwaitingTask: boolean;
+  isOnLeave: boolean;
   tasks: string;
   taskList: string[];
   blocker: string;
@@ -12,9 +16,14 @@ export function parseStandupMessage(text: string): {
   const clean = text.trim();
   const lower = clean.toLowerCase();
 
-  let hours = 0; // Default to 0 if not provided (never fake 7.5 hrs)
+  let hours = 0;
+  let hasExplicitHours = false;
   let project = "General Tasks";
   let blocker = "None";
+
+  // Check if message is ONLY hours (e.g., "7.5", "7.5h", "8 hours", "6.5 hrs", "5h")
+  const onlyHoursMatch = clean.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)?$/i);
+  const isOnlyHours = Boolean(onlyHoursMatch && parseFloat(onlyHoursMatch[1]) > 0 && parseFloat(onlyHoursMatch[1]) <= 24);
 
   // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave)
   const isAwaitingTask = /didnt\s+get|didn't\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench/i.test(lower);
@@ -24,16 +33,22 @@ export function parseStandupMessage(text: string): {
     project = "Awaiting Tasks / Standby";
     blocker = "Waiting for task allocation";
     hours = 0;
+    hasExplicitHours = true;
   } else if (isOnLeave) {
     project = "On Leave / Out of Office";
     blocker = "None";
     hours = 0;
+    hasExplicitHours = true;
   }
 
   // 2. Extract Explicit Hours (e.g. "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
   const hoursMatch = clean.match(/(?:\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/i);
   if (hoursMatch) {
     hours = parseFloat(hoursMatch[1]);
+    hasExplicitHours = true;
+  } else if (isOnlyHours && onlyHoursMatch) {
+    hours = parseFloat(onlyHoursMatch[1]);
+    hasExplicitHours = true;
   }
 
   // 3. Extract Explicit Blocker (e.g. "blocker: waiting for PR", "blocked by client key", "no blocker")
@@ -98,6 +113,10 @@ export function parseStandupMessage(text: string): {
   return {
     project,
     hours,
+    hasExplicitHours,
+    isOnlyHours,
+    isAwaitingTask,
+    isOnLeave,
     tasks,
     taskList,
     blocker
@@ -108,19 +127,16 @@ export function parseStandupMessage(text: string): {
  * Splits text into individual clean task badges / bullet items
  */
 export function extractStructuredTasks(text: string): string[] {
-  // First check if user used bullet points or numbered lists
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const items: string[] = [];
 
   for (const line of lines) {
-    // Strip bullet marks: "- ", "* ", "1. ", "• "
     const cleanedLine = line
       .replace(/^[\*\-•\d+\.]+\s*/, '')
       .replace(/^[,;:\s-]+|[,;:\s-]+$/g, '')
       .trim();
 
     if (cleanedLine.length >= 3) {
-      // Check if comma or semicolon separated within the line
       if (cleanedLine.includes(';') || (cleanedLine.includes(',') && cleanedLine.length > 50)) {
         const subParts = cleanedLine.split(/[,;]\s+/).map(p => p.trim()).filter(p => p.length >= 3);
         items.push(...subParts);
@@ -130,7 +146,6 @@ export function extractStructuredTasks(text: string): string[] {
     }
   }
 
-  // If only 1 line but contains multiple sentences or commas
   if (items.length <= 1 && text.includes(',')) {
     const commaParts = text.split(/,\s+/).map(p => p.trim()).filter(p => p.length >= 3);
     if (commaParts.length > 1) {

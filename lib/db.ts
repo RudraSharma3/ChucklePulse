@@ -102,6 +102,41 @@ export const db = {
     db.saveEmployees(list);
     return list;
   },
+  getPendingDraft: (email: string): { tasks: string; project: string; blocker: string; date: string } | null => {
+    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; date: string }>>(
+      path.join(DATA_DIR, 'drafts.json'),
+      'drafts.json',
+      {}
+    );
+    const draft = drafts[email.toLowerCase()];
+    if (draft && draft.date === new Date().toISOString().slice(0, 10)) {
+      return draft;
+    }
+    return null;
+  },
+  savePendingDraft: (email: string, draft: { tasks: string; project: string; blocker: string }): void => {
+    const filePath = path.join(DATA_DIR, 'drafts.json');
+    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; date: string }>>(
+      filePath,
+      'drafts.json',
+      {}
+    );
+    drafts[email.toLowerCase()] = {
+      ...draft,
+      date: new Date().toISOString().slice(0, 10)
+    };
+    writeFile(filePath, drafts);
+  },
+  clearPendingDraft: (email: string): void => {
+    const filePath = path.join(DATA_DIR, 'drafts.json');
+    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; date: string }>>(
+      filePath,
+      'drafts.json',
+      {}
+    );
+    delete drafts[email.toLowerCase()];
+    writeFile(filePath, drafts);
+  },
   getSettings: (): CompanySettings => {
     return readFile<CompanySettings>(SET_FILE, 'settings.json', DEFAULT_SETTINGS);
   },
@@ -112,4 +147,5 @@ export const db = {
     return updated;
   }
 };
+
 

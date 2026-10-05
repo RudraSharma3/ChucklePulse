@@ -181,7 +181,53 @@ function onMessage(event) {
 
     // Parse standup
     const parsed = parseStandupText(text);
+    const props = PropertiesService.getScriptProperties();
+    const draftKey = "DRAFT_" + senderEmail;
+    const existingDraftStr = props.getProperty(draftKey);
+    let existingDraft = null;
+    try { if (existingDraftStr) existingDraft = JSON.parse(existingDraftStr); } catch (e) {}
 
+    // Case A: User had a pending draft and is now replying with hours
+    const onlyHoursMatch = text.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)?$/i);
+    const hasHours = parsed.hours > 0 || onlyHoursMatch;
+
+    if (existingDraft && hasHours) {
+      const finalHours = parsed.hours > 0 ? parsed.hours : (onlyHoursMatch ? parseFloat(onlyHoursMatch[1]) : 7.5);
+      const record = {
+        id: "std_" + Date.now(),
+        name: senderName,
+        email: senderEmail || ("user_" + Date.now() + "@bytepx.com"),
+        dept: "Engineering",
+        tasks: existingDraft.tasks,
+        hours: finalHours,
+        project: existingDraft.project,
+        blocker: existingDraft.blocker,
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        source: "Google Chat 1:1 Bot DM"
+      };
+
+      saveStandupRecord(record);
+      props.deleteProperty(draftKey);
+      return buildConfirmationCard(senderName, record);
+    }
+
+    // Case B: User submitted tasks without hours -> Ask ONLY for hours
+    const isSpecialStatus = parsed.project.indexOf("Awaiting") >= 0 || parsed.project.indexOf("Leave") >= 0;
+    if (parsed.hours === 0 && !isSpecialStatus && !onlyHoursMatch) {
+      props.setProperty(draftKey, JSON.stringify(parsed));
+      return {
+        text: [
+          `📝 *Tasks Recorded:* ${parsed.tasks}`,
+          `📁 *Initiative:* *${parsed.project}*`,
+          ``,
+          `⏱️ *Quick Question for ${senderName}:* How many hours are you allocating today?`,
+          `👉 *Reply right here with your hours:* (e.g. \`6.5h\`, \`7.5 hours\`, \`8h\`)`
+        ].join("\n")
+      };
+    }
+
+    // Case C: Full Standup with Hours or Special Status
     const record = {
       id: "std_" + Date.now(),
       name: senderName,
@@ -197,12 +243,14 @@ function onMessage(event) {
     };
 
     saveStandupRecord(record);
+    props.deleteProperty(draftKey);
 
     return buildConfirmationCard(senderName, record);
   } catch (err) {
     console.error("Error in onMessage:", err);
     return { text: "🎯 Thanks! Your standup check-in has been received. Have a super productive day! 🚀" };
   }
+
 }
 
 /**

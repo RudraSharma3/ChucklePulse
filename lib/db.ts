@@ -54,6 +54,10 @@ function readFile<T>(filePath: string, seedFileName: string, fallback: T): T {
 
 function writeFile<T>(filePath: string, data: T): boolean {
   try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
     return true;
   } catch (e) {

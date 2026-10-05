@@ -125,7 +125,6 @@ export function buildHoursRequestCard(params: {
                         text: "4.0 hrs",
                         onClick: {
                           action: {
-                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "4.0" }]
                           }
@@ -135,7 +134,6 @@ export function buildHoursRequestCard(params: {
                         text: "6.0 hrs",
                         onClick: {
                           action: {
-                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "6.0" }]
                           }
@@ -145,7 +143,6 @@ export function buildHoursRequestCard(params: {
                         text: "7.5 hrs",
                         onClick: {
                           action: {
-                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "7.5" }]
                           }
@@ -155,7 +152,6 @@ export function buildHoursRequestCard(params: {
                         text: "8.0 hrs",
                         onClick: {
                           action: {
-                            actionMethodName: "submitHours",
                             function: "submitHours",
                             parameters: [{ key: "hours", value: "8.0" }]
                           }
@@ -281,7 +277,6 @@ export function buildInteractiveCard(params: {
                       text: 'Submit Update',
                       onClick: {
                         action: {
-                          actionMethodName: 'handleFormSubmit',
                           function: 'handleFormSubmit',
                           parameters: [
                             { key: 'actionName', value: 'handleFormSubmit' },

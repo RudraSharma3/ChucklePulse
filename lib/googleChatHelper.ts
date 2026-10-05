@@ -13,32 +13,26 @@ export function formatChatResponse(
   options: ChatActionResponseOptions = {}
 ) {
   const isCardAction = options.isCardAction ?? false;
-  const isAddOn = options.isAddOn ?? false;
   const { cardsV2, text } = payload;
 
-  if (isAddOn) {
-    // Google Workspace Add-on (Z Mode)
+  // RULE 1: For all button clicks / card actions, return updateMessageAction in hostAppDataAction
+  if (isCardAction) {
     const message = cardsV2 && cardsV2.length > 0
       ? { cardsV2 }
-      : { text: text ?? (isCardAction ? 'Action completed.' : 'Message received.') };
+      : { text: text ?? 'Update recorded.' };
 
     return {
       hostAppDataAction: {
-        chatDataAction: isCardAction
-          ? { updateMessageAction: { message } }
-          : { createMessageAction: { message } },
+        chatDataAction: {
+          updateMessageAction: {
+            message,
+          },
+        },
       },
     };
   }
 
-  // Standard Google Chat App API
-  if (isCardAction) {
-    return {
-      actionResponse: { type: 'UPDATE_MESSAGE' },
-      ...(cardsV2 && cardsV2.length > 0 ? { cardsV2 } : { text: text ?? '' }),
-    };
-  }
-
+  // For regular incoming messages (new message response)
   if (cardsV2 && cardsV2.length > 0) {
     return { cardsV2 };
   }
@@ -126,7 +120,10 @@ export function buildHoursRequestCard(params: {
                         onClick: {
                           action: {
                             function: "submitHours",
-                            parameters: [{ key: "hours", value: "4.0" }]
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "4.0" }
+                            ]
                           }
                         }
                       },
@@ -135,7 +132,10 @@ export function buildHoursRequestCard(params: {
                         onClick: {
                           action: {
                             function: "submitHours",
-                            parameters: [{ key: "hours", value: "6.0" }]
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "6.0" }
+                            ]
                           }
                         }
                       },
@@ -144,7 +144,10 @@ export function buildHoursRequestCard(params: {
                         onClick: {
                           action: {
                             function: "submitHours",
-                            parameters: [{ key: "hours", value: "7.5" }]
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "7.5" }
+                            ]
                           }
                         }
                       },
@@ -153,7 +156,10 @@ export function buildHoursRequestCard(params: {
                         onClick: {
                           action: {
                             function: "submitHours",
-                            parameters: [{ key: "hours", value: "8.0" }]
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "8.0" }
+                            ]
                           }
                         }
                       }

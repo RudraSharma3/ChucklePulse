@@ -2,12 +2,24 @@
  * ==============================================================================
  * BytePx Standup Bot - Complete Google Chat 1:1 DM Bot Engine
  * ==============================================================================
+ * Features:
+ * 1. Morning Standup Broadcast at configured Dashboard time (Default: 10:30 AM).
+ * 2. 45-Minute Persistent Auto-Nudge Cycle: Re-pings employees every 45 mins
+ *    until they reply with their standup.
+ * 3. Dynamic Dashboard Settings Sync: Changes to broadcast time or nudge interval
+ *    in the web dashboard immediately update the bot schedule.
+ * 4. Real-time 2-way sync with Vercel API (https://chuckle-pulse.vercel.app).
+ * 5. Google Workspace Add-on "Z Mode" compliance to eliminate Error Code 3.
+ * ==============================================================================
  */
 
 const CONFIG = {
   ADMIN_EMAIL: "rudra@bytepx.com",
-  STANDUP_HOUR: 10,
-  STANDUP_MINUTE: 15
+  DASHBOARD_URL: "https://chuckle-pulse.vercel.app",
+  DEFAULT_STANDUP_HOUR: 10,
+  DEFAULT_STANDUP_MINUTE: 30,
+  DEFAULT_NUDGE_INTERVAL_MINUTES: 45,
+  AUTO_NUDGE_ENABLED: true
 };
 
 // 🎭 Rotating curious, humorous, work-safe standup prompts
@@ -21,18 +33,11 @@ const ROTATING_PROMPTS = [
   "Happy morning warrior! ⚔️ Rate your energy 1-10 & tell me what milestones you are crushing today!"
 ];
 
-// 🎬 Verified unblocked 3D animations and developer reaction GIFs
-const ROTATING_GIFS = [
-  { url: "https://raw.githubusercontent.com/ABSphreak/ABSphreak/master/gifs/Hi.gif", title: "Morning Wave ☕" },
-  { url: "https://raw.githubusercontent.com/abhisheknaiidu/abhisheknaiidu/master/code.gif", title: "Hacking the Matrix 💻" },
-  { url: "https://raw.githubusercontent.com/MartinHeinz/MartinHeinz/master/wave.gif", title: "Hello Champion 🚀" },
-  { url: "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Robot.png", title: "StandupBot AI 🤖" },
-  { url: "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Partying%20Face.png", title: "Party Energy 🎉" },
-  { url: "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Smiling%20Face%20with%20Sunglasses.png", title: "Cool & Confident 😎" },
-  { url: "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Star-Struck.png", title: "Star Performance ⭐" },
-  { url: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/25.gif", title: "High Voltage Pikachu ⚡" },
-  { url: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/150.gif", title: "Legendary Focus 👑" },
-  { url: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/6.gif", title: "Crushing Tasks 🔥" }
+const NUDGE_PROMPTS = [
+  "⏰ *Friendly Standup Reminder!* 🔔 Just checking in—did you get a chance to log your tasks and hours for today yet?",
+  "👀 *Gentle Standup Poke!* ☕ Looks like your daily check-in is still pending. Drop your project and mission when ready!",
+  "🚀 *Beep Boop Reminder!* 🤖 The BytePx dashboard is waiting for your updates. Reply right here with your tasks & hours!",
+  "☕ *Coffee Break Check-in!* ⚡ Quick reminder to share your daily tasks, hours, and any blockers so the team stays in sync."
 ];
 
 /**
@@ -56,8 +61,50 @@ function testRun() {
     }
   }
   console.log(`📊 Total Registered 1:1 Employee Chats: ${dmCount}`);
+  
+  // Sync settings
+  const settings = getEffectiveSettings();
+  console.log(`⚙️ Active Settings: Standup at ${settings.standupTime}, Auto-nudge: ${settings.autoNudgeEnabled ? `Every ${settings.nudgeIntervalMinutes}m` : 'Disabled'}`);
+
   console.log("🎉 Self-Test Passed! The bot is fully authorized.");
-  return { status: "OK", registeredDMs: dmCount };
+  return { status: "OK", registeredDMs: dmCount, settings: settings };
+}
+
+/**
+ * ⚙️ Helper: Fetch dynamic settings from Vercel Dashboard with fallback
+ */
+function getEffectiveSettings() {
+  try {
+    const res = UrlFetchApp.fetch(CONFIG.DASHBOARD_URL + "/api/settings", { muteHttpExceptions: true });
+    if (res.getResponseCode() === 200) {
+      const data = JSON.parse(res.getContentText());
+      if (data && data.standupTime) {
+        return {
+          standupTime: data.standupTime || "10:30",
+          autoNudgeEnabled: data.autoNudgeEnabled !== false,
+          nudgeIntervalMinutes: data.nudgeIntervalMinutes || 45,
+          botPrompt: data.botPrompt || ROTATING_PROMPTS[0],
+          companyName: data.companyName || "BytePx"
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch remote settings, using local defaults:", e.message);
+  }
+
+  // Fallback to script properties or default config
+  const props = PropertiesService.getScriptProperties();
+  const savedTime = props.getProperty("SETTING_STANDUP_TIME") || "10:30";
+  const savedInterval = parseInt(props.getProperty("SETTING_NUDGE_INTERVAL") || "45");
+  const savedAutoNudge = props.getProperty("SETTING_AUTO_NUDGE") !== "false";
+
+  return {
+    standupTime: savedTime,
+    autoNudgeEnabled: savedAutoNudge,
+    nudgeIntervalMinutes: savedInterval,
+    botPrompt: ROTATING_PROMPTS[0],
+    companyName: "BytePx"
+  };
 }
 
 /**
@@ -103,7 +150,7 @@ function onMessage(event) {
       id: "std_" + Date.now(),
       name: senderName,
       email: senderEmail || ("user_" + Date.now() + "@bytepx.com"),
-      dept: "IT",
+      dept: "Engineering",
       tasks: parsed.tasks,
       hours: parsed.hours,
       project: parsed.project,
@@ -123,21 +170,54 @@ function onMessage(event) {
 }
 
 /**
- * ⏰ BROADCAST: Triggered by Dashboard "Send Standup to All Employees"
+ * ⏰ BROADCAST: Triggered by Dashboard or 10:30 AM Daily Schedule
  */
-function sendDirectMessageToAllEmployees() {
-  console.log("⏰ Broadcasting Daily Standup to active 1:1 Bot DMs...");
+function sendDirectMessageToAllEmployees(isNudge) {
+  const settings = getEffectiveSettings();
+  console.log(isNudge ? `⏰ Nudging pending employees (${settings.nudgeIntervalMinutes}m cycle)...` : `⏰ Broadcasting Daily Standup at ${settings.standupTime}...`);
+  
   const token = ScriptApp.getOAuthToken();
   const scriptProps = PropertiesService.getScriptProperties().getProperties();
+  const today = new Date().toISOString().slice(0, 10);
   
+  // Get today's completed check-ins from local storage & Vercel
+  let completedEmails = new Set();
+  try {
+    const existingStr = scriptProps["STANDUP_RECORDS"] || "[]";
+    const list = JSON.parse(existingStr);
+    list.filter(r => r.date === today).forEach(r => {
+      if (r.email) completedEmails.add(r.email.toLowerCase());
+    });
+  } catch (e) {}
+
+  // Also query Vercel API for latest completed standups
+  try {
+    const res = UrlFetchApp.fetch(CONFIG.DASHBOARD_URL + "/api/standups", { muteHttpExceptions: true });
+    if (res.getResponseCode() === 200) {
+      const liveList = JSON.parse(res.getContentText());
+      if (Array.isArray(liveList)) {
+        liveList.filter(r => r.date === today).forEach(r => {
+          if (r.email) completedEmails.add(r.email.toLowerCase());
+        });
+      }
+    }
+  } catch (apiErr) {
+    console.warn("Standup check warning:", apiErr.message);
+  }
+
   const targetSpaces = [];
 
   for (const key in scriptProps) {
     if (key.startsWith("DM_") && scriptProps[key]) {
-      targetSpaces.push({
-        key: key,
-        spaceName: scriptProps[key]
-      });
+      const email = key.replace("DM_", "").toLowerCase();
+      // If nudge mode, only message employees who haven't checked in today
+      if (!isNudge || !completedEmails.has(email)) {
+        targetSpaces.push({
+          key: key,
+          spaceName: scriptProps[key],
+          email: email
+        });
+      }
     }
   }
 
@@ -146,7 +226,7 @@ function sendDirectMessageToAllEmployees() {
 
   targetSpaces.forEach(item => {
     try {
-      const card = buildPromptCard();
+      const card = isNudge ? buildNudgeCard() : buildPromptCard("", settings.botPrompt);
       const postRes = UrlFetchApp.fetch("https://chat.googleapis.com/v1/" + item.spaceName + "/messages", {
         method: "post",
         contentType: "application/json",
@@ -157,7 +237,7 @@ function sendDirectMessageToAllEmployees() {
       const resJson = JSON.parse(postRes.getContentText());
       if (!resJson.error) {
         sent++;
-        console.log(`✅ Dispatched standup prompt to 1:1 chat: ${item.spaceName}`);
+        console.log(`✅ Dispatched standup prompt to: ${item.spaceName} (${item.email})`);
       } else {
         errors.push(`${item.spaceName}: ${resJson.error.message || 'API error'}`);
       }
@@ -167,19 +247,90 @@ function sendDirectMessageToAllEmployees() {
     }
   });
 
+  // Schedule follow-up nudge if auto-nudge is enabled and there are pending members
+  if (settings.autoNudgeEnabled && targetSpaces.length > 0) {
+    scheduleNextNudge(settings.nudgeIntervalMinutes);
+  } else if (targetSpaces.length === 0 && isNudge) {
+    console.log("🎉 All employees have checked in today! Auto-nudge completed.");
+    clearNudgeTriggers();
+  }
+
   return { 
     success: true, 
     sent: sent, 
-    totalRegistered: targetSpaces.length,
+    totalPending: targetSpaces.length,
     errors: errors 
   };
 }
 
 /**
- * ⏰ AUTO-SCHEDULE: Sets up an automated trigger at 10:00 AM every workday
+ * 🔁 AUTO-NUDGE: Scheduled 45 minutes after prompt if employee hasn't responded
+ * Repeats every 45 minutes until all employees have checked in.
+ */
+function autoNudgePendingEmployees() {
+  console.log("⏰ Auto-Nudge Trigger Running for pending employees...");
+  const settings = getEffectiveSettings();
+
+  if (!settings.autoNudgeEnabled) {
+    console.log("⏸️ Auto-nudge is disabled in dashboard settings. Skipping.");
+    clearNudgeTriggers();
+    return;
+  }
+
+  const result = sendDirectMessageToAllEmployees(true);
+  
+  // If there are still pending employees, schedule the next nudge in 45 mins
+  if (result.totalPending > 0) {
+    console.log(`⏰ ${result.totalPending} employee(s) still pending. Scheduling next nudge in ${settings.nudgeIntervalMinutes} minutes.`);
+    scheduleNextNudge(settings.nudgeIntervalMinutes);
+  } else {
+    console.log("🎉 All employees have checked in! Stopping auto-nudge cycle.");
+    clearNudgeTriggers();
+  }
+}
+
+/**
+ * ⏲️ Helper: Schedules a one-time trigger after the configured interval (e.g. 45 min)
+ */
+function scheduleNextNudge(intervalMinutes) {
+  const minutes = intervalMinutes || CONFIG.DEFAULT_NUDGE_INTERVAL_MINUTES;
+  clearNudgeTriggers();
+
+  // Create next trigger
+  ScriptApp.newTrigger("autoNudgePendingEmployees")
+    .timeBased()
+    .after(minutes * 60 * 1000)
+    .create();
+
+  console.log(`⏰ Scheduled next follow-up nudge in ${minutes} minutes.`);
+}
+
+function clearNudgeTriggers() {
+  const existingTriggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < existingTriggers.length; i++) {
+    if (existingTriggers[i].getHandlerFunction() === "autoNudgePendingEmployees") {
+      ScriptApp.deleteTrigger(existingTriggers[i]);
+    }
+  }
+}
+
+/**
+ * ⏰ AUTO-SCHEDULE: Sets up the automated daily trigger matching Dashboard settings (e.g. 10:30 AM)
  */
 function createDailyStandupScheduleTrigger() {
-  // Clear any existing triggers for this function
+  const settings = getEffectiveSettings();
+  
+  // Parse hour and minute from settings "10:30"
+  let hour = CONFIG.DEFAULT_STANDUP_HOUR;
+  let minute = CONFIG.DEFAULT_STANDUP_MINUTE;
+
+  if (settings.standupTime && settings.standupTime.includes(":")) {
+    const parts = settings.standupTime.split(":");
+    hour = parseInt(parts[0], 10);
+    minute = parseInt(parts[1], 10);
+  }
+
+  // Clear existing broadcast triggers
   const existingTriggers = ScriptApp.getProjectTriggers();
   for (let i = 0; i < existingTriggers.length; i++) {
     if (existingTriggers[i].getHandlerFunction() === "sendDirectMessageToAllEmployees") {
@@ -187,23 +338,56 @@ function createDailyStandupScheduleTrigger() {
     }
   }
 
-  // Create new trigger every workday at 10:00 AM
+  // Create new trigger every day at configured time
   ScriptApp.newTrigger("sendDirectMessageToAllEmployees")
     .timeBased()
     .everyDays(1)
-    .atHour(CONFIG.STANDUP_HOUR || 10)
-    .nearMinute(CONFIG.STANDUP_MINUTE || 0)
+    .atHour(hour)
+    .nearMinute(minute)
     .create();
 
-  console.log(`⏰ Automated Daily Standup Trigger created for ${CONFIG.STANDUP_HOUR}:00 AM every day!`);
+  console.log(`⏰ Automated Daily Standup Trigger created for ${hour}:${minute} every day!`);
+  return { status: "SCHEDULED", hour: hour, minute: minute };
+}
+
+/**
+ * 🔄 Sync schedule and settings from dashboard
+ */
+function syncScheduleWithDashboard() {
+  console.log("🔄 Syncing schedule with Dashboard settings...");
+  const settings = getEffectiveSettings();
+  
+  // Save local properties
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty("SETTING_STANDUP_TIME", settings.standupTime);
+  props.setProperty("SETTING_NUDGE_INTERVAL", String(settings.nudgeIntervalMinutes));
+  props.setProperty("SETTING_AUTO_NUDGE", String(settings.autoNudgeEnabled));
+
+  // Re-create the daily trigger
+  const res = createDailyStandupScheduleTrigger();
+  console.log(`✅ Schedule synced: Daily at ${settings.standupTime}, Nudge: ${settings.autoNudgeEnabled ? `Every ${settings.nudgeIntervalMinutes}m` : 'Disabled'}`);
+  return { success: true, settings: settings, schedule: res };
+}
+
+function buildNudgeCard() {
+  const prompt = NUDGE_PROMPTS[Math.floor(Math.random() * NUDGE_PROMPTS.length)];
+  return {
+    text: [
+      prompt,
+      ``,
+      `👉 *Reply to this chat with your update:*`,
+      `\`Project: <Project Name>, Tasks: <Your Tasks>, Hours: <e.g. 7.5h>, Blocker: <None or issue>\``,
+      `_Example: Working on Auth & Security JWT login (6.5h), blocker: none_`
+    ].join("\n")
+  };
 }
 
 /**
  * 🎨 Helper: Prompt Card
  */
-function buildPromptCard(userName) {
+function buildPromptCard(userName, customPrompt) {
   const name = userName ? userName.split(' ')[0] : "Champion";
-  const prompt = ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
+  const prompt = customPrompt || ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
 
   return {
     text: [
@@ -304,7 +488,7 @@ function saveStandupRecord(record) {
 
     // Sync to Vercel Dashboard in real-time
     try {
-      UrlFetchApp.fetch("https://chuckle-pulse.vercel.app/api/standups", {
+      UrlFetchApp.fetch(CONFIG.DASHBOARD_URL + "/api/standups", {
         method: "post",
         contentType: "application/json",
         payload: JSON.stringify(record),
@@ -325,7 +509,17 @@ function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "get_standups";
   
   if (action === "trigger") {
-    const result = sendDirectMessageToAllEmployees();
+    const result = sendDirectMessageToAllEmployees(false);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === "nudge") {
+    const result = sendDirectMessageToAllEmployees(true);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === "sync_schedule") {
+    const result = syncScheduleWithDashboard();
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
   }
 

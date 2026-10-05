@@ -1,7 +1,11 @@
 {
   "companyName": "BytePx",
-  "standupStartTime": "10:00",
-  "standupEndTime": "10:30",
+  "standupTime": "10:30",
+  "standupStartTime": "10:30",
+  "standupEndTime": "11:15",
+  "autoNudgeEnabled": true,
+  "nudgeIntervalMinutes": 45,
+  "maxNudges": 3,
   "googleChatWebhookUrl": "",
   "botPrompt": "Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?",
   "gifTag": "work-coffee",

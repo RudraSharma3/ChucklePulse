@@ -24,13 +24,17 @@ const DEFAULT_EMPLOYEES: Employee[] = [
 
 const DEFAULT_SETTINGS: CompanySettings = {
   companyName: "BytePx",
-  standupStartTime: "10:00",
-  standupEndTime: "10:30",
+  standupTime: "10:30",
+  standupStartTime: "10:30",
+  standupEndTime: "11:15",
+  autoNudgeEnabled: true,
+  nudgeIntervalMinutes: 45,
+  maxNudges: 3,
   googleChatWebhookUrl: "",
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbznS95B3hrLjJYDozlrdQ1geq2UFDDilabLwLWDm-_SKPeuh1RY_dYAbZKLMlNwWkni/exec",
   botPrompt: "Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?",
   gifTag: "work-coffee",
-  theme: "dark"
+  theme: "light"
 };
 
 function readFile<T>(filePath: string, seedFileName: string, fallback: T): T {

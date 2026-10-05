@@ -15,29 +15,17 @@ export function formatChatResponse(
   const isCardAction = options.isCardAction ?? false;
   const { cardsV2, text } = payload;
 
-  // RULE 1: For all button clicks / card actions, return updateMessageAction in hostAppDataAction
-  if (isCardAction) {
-    const message = cardsV2 && cardsV2.length > 0
-      ? { cardsV2 }
-      : { text: text ?? 'Update recorded.' };
+  const message = cardsV2 && cardsV2.length > 0
+    ? { cardsV2 }
+    : { text: text ?? (isCardAction ? 'Action completed.' : 'Message received.') };
 
-    return {
-      hostAppDataAction: {
-        chatDataAction: {
-          updateMessageAction: {
-            message,
-          },
-        },
-      },
-    };
-  }
-
-  // For regular incoming messages (new message response)
-  if (cardsV2 && cardsV2.length > 0) {
-    return { cardsV2 };
-  }
-
-  return { text: text ?? '' };
+  return {
+    hostAppDataAction: {
+      chatDataAction: isCardAction
+        ? { updateMessageAction: { message } }
+        : { createMessageAction: { message } },
+    },
+  };
 }
 
 /**

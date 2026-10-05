@@ -176,6 +176,29 @@ function sendDirectMessageToAllEmployees() {
 }
 
 /**
+ * ⏰ AUTO-SCHEDULE: Sets up an automated trigger at 10:00 AM every workday
+ */
+function createDailyStandupScheduleTrigger() {
+  // Clear any existing triggers for this function
+  const existingTriggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < existingTriggers.length; i++) {
+    if (existingTriggers[i].getHandlerFunction() === "sendDirectMessageToAllEmployees") {
+      ScriptApp.deleteTrigger(existingTriggers[i]);
+    }
+  }
+
+  // Create new trigger every workday at 10:00 AM
+  ScriptApp.newTrigger("sendDirectMessageToAllEmployees")
+    .timeBased()
+    .everyDays(1)
+    .atHour(CONFIG.STANDUP_HOUR || 10)
+    .nearMinute(CONFIG.STANDUP_MINUTE || 0)
+    .create();
+
+  console.log(`⏰ Automated Daily Standup Trigger created for ${CONFIG.STANDUP_HOUR}:00 AM every day!`);
+}
+
+/**
  * 🎨 Helper: Prompt Card
  */
 function buildPromptCard(userName) {

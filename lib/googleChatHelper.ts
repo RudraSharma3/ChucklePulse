@@ -91,6 +91,10 @@ export function buildStandupConfirmationCard(params: {
     ? "🟢 <b>Blockers:</b> None"
     : `🚨 <b>Blocker Alert:</b> ${params.blocker}`;
 
+  const hoursText = params.hours > 0
+    ? `${params.hours} hrs`
+    : (params.project.includes("Awaiting") ? "0 hrs (Standby / Awaiting Tasks)" : (params.project.includes("Leave") ? "0 hrs (On Leave)" : "0 hrs (Unspecified)"));
+
   return {
     cardsV2: [
       {
@@ -117,7 +121,7 @@ export function buildStandupConfirmationCard(params: {
                 },
                 {
                   textParagraph: {
-                    text: `⏱️ <b>Hours:</b> ${params.hours} hrs`
+                    text: `⏱️ <b>Hours:</b> ${hoursText}`
                   }
                 },
                 {
@@ -133,6 +137,7 @@ export function buildStandupConfirmationCard(params: {
     ]
   };
 }
+
 
 /**
  * Builds an interactive task review card with action buttons

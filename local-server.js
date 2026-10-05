@@ -592,14 +592,20 @@ function requestHandler(req, res) {
   }
 
   // Static File Server
-  let filePath = path.join(__dirname, pathname === '/' ? 'index.html' : pathname);
+  let filePath = path.join(__dirname, 'public', pathname === '/' ? 'index.html' : pathname);
+  if (!fs.existsSync(filePath)) {
+    filePath = path.join(__dirname, pathname === '/' ? 'index.html' : pathname);
+  }
   const extname = String(path.extname(filePath)).toLowerCase();
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
 
   fs.readFile(filePath, (error, content) => {
     if (error) {
       if (error.code === 'ENOENT') {
-        fs.readFile(path.join(__dirname, 'index.html'), (err, fallback) => {
+        const fallbackPath = fs.existsSync(path.join(__dirname, 'public', 'index.html')) 
+          ? path.join(__dirname, 'public', 'index.html') 
+          : path.join(__dirname, 'index.html');
+        fs.readFile(fallbackPath, (err, fallback) => {
           if (err) {
             res.writeHead(404, { 'Content-Type': 'text/plain' });
             res.end('404 Not Found');

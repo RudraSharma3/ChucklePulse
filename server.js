@@ -9,11 +9,19 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
+const os = require('os');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+const PORT = process.env.PORT || 3000;
+const IS_VERCEL = Boolean(process.env.VERCEL);
+const DATA_DIR = IS_VERCEL ? path.join(os.tmpdir(), 'data') : path.join(__dirname, 'data');
+const SEED_DATA_DIR = path.join(__dirname, 'data');
+
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Warning creating DATA_DIR:', e.message);
 }
 
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees.json');
@@ -24,6 +32,14 @@ function readJSON(filePath, fallback = []) {
   try {
     if (fs.existsSync(filePath)) {
       return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+    // If running in Vercel serverless, copy initial seed data from project folder
+    const fileName = path.basename(filePath);
+    const seedFile = path.join(SEED_DATA_DIR, fileName);
+    if (fs.existsSync(seedFile)) {
+      const data = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+      writeJSON(filePath, data);
+      return data;
     }
   } catch (err) {
     console.error(`Error reading ${filePath}:`, err.message);

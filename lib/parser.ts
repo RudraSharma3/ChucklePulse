@@ -10,39 +10,56 @@ export function parseStandupMessage(text: string): {
   blocker: string;
 } {
   const clean = text.trim();
-  let hours = 7.5;
+  const lower = clean.toLowerCase();
+
+  let hours = 0; // Default to 0 if not provided (never fake 7.5 hrs)
   let project = "General Tasks";
   let blocker = "None";
 
-  // 1. Extract Hours (e.g. "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
+  // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave)
+  const isAwaitingTask = /didnt\s+get|didn't\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench/i.test(lower);
+  const isOnLeave = /on\s+leave|sick\s+leave|day\s+off|vacation|out\s+of\s+office|holiday|taking\s+leave/i.test(lower);
+
+  if (isAwaitingTask) {
+    project = "Awaiting Tasks / Standby";
+    blocker = "Waiting for task allocation";
+    hours = 0;
+  } else if (isOnLeave) {
+    project = "On Leave / Out of Office";
+    blocker = "None";
+    hours = 0;
+  }
+
+  // 2. Extract Explicit Hours (e.g. "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
   const hoursMatch = clean.match(/(?:\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/i);
   if (hoursMatch) {
     hours = parseFloat(hoursMatch[1]);
   }
 
-  // 2. Extract Blocker (e.g. "blocker: waiting for PR", "blocked by client key", "no blocker")
+  // 3. Extract Explicit Blocker (e.g. "blocker: waiting for PR", "blocked by client key", "no blocker")
   const blockerMatch = clean.match(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-]([^\.\n\r]+)/i);
   if (blockerMatch) {
     const rawBlocker = blockerMatch[1].trim();
-    if (/^(none|no|nil|n\/a|nope|nothing|all clear)$/i.test(rawBlocker)) {
+    if (/^(none|no|nil|n\/a|nope|nothing|all clear|no blocker)$/i.test(rawBlocker)) {
       blocker = "None";
     } else {
       blocker = rawBlocker;
     }
   }
 
-  // 3. Extract Explicit Project (e.g. "project: auth", "working on project xyz", "for client portal")
-  const projectPrefixMatch = clean.match(/(?:project|initiative|feature|repo|on|for)[:\s-]([a-zA-Z0-9\s_&-]+?)(?:,|\.|\n|\(|\)|hours?|hrs?|blocker|$)/i);
-  if (projectPrefixMatch && projectPrefixMatch[1].trim().length >= 3 && projectPrefixMatch[1].trim().length <= 35) {
-    const candidate = projectPrefixMatch[1].trim();
-    if (!/^(today|yesterday|tomorrow|tasks|work|something|now|morning|afternoon|this|the)$/i.test(candidate)) {
-      project = capitalizeTitle(candidate);
+  // 4. Extract Explicit Project (e.g. "project: auth", "working on project xyz", "for client portal")
+  if (!isAwaitingTask && !isOnLeave) {
+    const projectPrefixMatch = clean.match(/(?:project|initiative|feature|repo|on|for)[:\s-]([a-zA-Z0-9\s_&-]+?)(?:,|\.|\n|\(|\)|hours?|hrs?|blocker|$)/i);
+    if (projectPrefixMatch && projectPrefixMatch[1].trim().length >= 3 && projectPrefixMatch[1].trim().length <= 35) {
+      const candidate = projectPrefixMatch[1].trim();
+      if (!/^(today|yesterday|tomorrow|tasks|work|something|now|morning|afternoon|this|the|any)$/i.test(candidate)) {
+        project = capitalizeTitle(candidate);
+      }
     }
   }
 
-  // 4. Fallback Keyword Project Categorization if not explicitly named
-  if (project === "General Tasks") {
-    const lower = clean.toLowerCase();
+  // 5. Fallback Keyword Project Categorization if not explicitly named
+  if (project === "General Tasks" && !isAwaitingTask && !isOnLeave) {
     if (lower.includes("auth") || lower.includes("login") || lower.includes("jwt") || lower.includes("security") || lower.includes("oauth")) {
       project = "Auth & Security";
     } else if (lower.includes("payment") || lower.includes("stripe") || lower.includes("razorpay") || lower.includes("billing") || lower.includes("invoice")) {
@@ -62,7 +79,7 @@ export function parseStandupMessage(text: string): {
     }
   }
 
-  // 5. Clean task string thoroughly: remove hours, blocker strings, empty parentheses, leftover punctuation
+  // 6. Clean task string thoroughly: remove hours, blocker strings, empty parentheses, leftover punctuation
   let tasks = clean
     .replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, '')
     .replace(/(?:\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/gi, '')
@@ -75,7 +92,7 @@ export function parseStandupMessage(text: string): {
     tasks = clean;
   }
 
-  // 6. Split into structured task list (by newlines, numbered lists, bullet points, or semicolons/commas)
+  // 7. Split into structured task list
   const taskList = extractStructuredTasks(tasks);
 
   return {

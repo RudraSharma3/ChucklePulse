@@ -476,6 +476,9 @@ function buildPromptCard(userName, customPrompt) {
  */
 function buildConfirmationCard(senderName, record) {
   const blockerLine = record.blocker === "None" ? "🟢 *Blockers:* None" : `🚨 *Blocker Alert:* ${record.blocker}`;
+  const hoursText = record.hours > 0 
+    ? `*${record.hours} hrs*` 
+    : (record.project.indexOf("Awaiting") >= 0 ? "*0 hrs* _(Standby / Awaiting Tasks)_" : (record.project.indexOf("Leave") >= 0 ? "*0 hrs* _(On Leave)_" : "*0 hrs* _(Unspecified)_"));
 
   return {
     text: [
@@ -483,7 +486,7 @@ function buildConfirmationCard(senderName, record) {
       `━━━━━━━━━━━━━━━━━━━━━━━━`,
       `📁 *Project:* *${record.project}*`,
       `📝 *Tasks:* ${record.tasks}`,
-      `⏱️ *Hours:* *${record.hours} hrs*`,
+      `⏱️ *Hours:* ${hoursText}`,
       `${blockerLine}`,
       `🕒 *Recorded At:* ${record.time}`,
       `━━━━━━━━━━━━━━━━━━━━━━━━`,
@@ -496,31 +499,58 @@ function buildConfirmationCard(senderName, record) {
  * 🧠 Intelligent Parser
  */
 function parseStandupText(text) {
-  let tasks = text;
-  let hours = 7.5;
+  const clean = text.trim();
+  const lower = clean.toLowerCase();
+  let tasks = clean;
+  let hours = 0; // Default to 0, never hardcode 7.5
   let project = "General Tasks";
   let blocker = "None";
 
-  // 1. Extract hours
-  const hoursMatch = text.match(/(\d+(\.\d+)?)\s*(hrs?|hours?|h\b)/i);
+  // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave)
+  const isAwaitingTask = /didnt\s+get|didn't\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench/i.test(lower);
+  const isOnLeave = /on\s+leave|sick\s+leave|day\s+off|vacation|out\s+of\s+office|holiday|taking\s+leave/i.test(lower);
+
+  if (isAwaitingTask) {
+    project = "Awaiting Tasks / Standby";
+    blocker = "Waiting for task allocation";
+    hours = 0;
+  } else if (isOnLeave) {
+    project = "On Leave / Out of Office";
+    blocker = "None";
+    hours = 0;
+  }
+
+  // 2. Extract hours
+  const hoursMatch = clean.match(/(?:\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/i);
   if (hoursMatch) {
     hours = parseFloat(hoursMatch[1]);
   }
 
-  // 2. Extract blockers
-  const blockerMatch = text.match(/(blocker|blocked by|blocking)[:\s-]([^\.\n]+)/i);
+  // 3. Extract blockers
+  const blockerMatch = clean.match(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-]([^\.\n]+)/i);
   if (blockerMatch) {
-    blocker = blockerMatch[2].trim();
+    const raw = blockerMatch[1].trim();
+    if (/^(none|no|nil|n\/a|nope|nothing|all clear)$/i.test(raw)) {
+      blocker = "None";
+    } else {
+      blocker = raw;
+    }
   }
 
-  // 3. Extract project
-  const projectMatch = text.match(/(project|on|for)[:\s-]([a-zA-Z0-9\s_-]+)/i);
-  if (projectMatch && projectMatch[2].length < 30) {
-    project = projectMatch[2].trim();
+  // 4. Extract project if explicitly given
+  if (!isAwaitingTask && !isOnLeave) {
+    const projectMatch = clean.match(/(?:project|on|for)[:\s-]([a-zA-Z0-9\s_-]+)/i);
+    if (projectMatch && projectMatch[1].trim().length >= 3 && projectMatch[1].trim().length < 30) {
+      const candidate = projectMatch[1].trim();
+      if (!/^(today|yesterday|tasks|work|something|now|morning)$/i.test(candidate)) {
+        project = candidate;
+      }
+    }
   }
 
   return { tasks, hours, project, blocker };
 }
+
 
 /**
  * 💾 Storage Helpers

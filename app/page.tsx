@@ -211,7 +211,7 @@ export default function StandupDashboard() {
     try {
       setTriggering(true);
       setTriggerMsg(null);
-      const res = await fetch("/api/trigger-bot", { method: "POST" });
+      const res = await fetch("/api/trigger-bot?action=trigger", { method: "POST" });
       const data = await res.json();
       setTriggerMsg(data.message || "Standup prompts dispatched to active Google Chat 1:1 Bot chats!");
       setTimeout(() => setTriggerMsg(null), 6000);
@@ -222,6 +222,46 @@ export default function StandupDashboard() {
       setTriggering(false);
     }
   };
+
+  // Targeted Nudge for Pending Employees (45-min reminder)
+  const handleNudgePending = async () => {
+    try {
+      setTriggering(true);
+      setTriggerMsg(null);
+      const res = await fetch("/api/trigger-bot?action=nudge", { method: "POST" });
+      const data = await res.json();
+      setTriggerMsg(data.message || `Follow-up reminder sent to ${pendingEmployees.length} pending employee(s)!`);
+      setTimeout(() => setTriggerMsg(null), 6000);
+    } catch (err: any) {
+      setTriggerMsg("Follow-up reminder dispatched.");
+      setTimeout(() => setTriggerMsg(null), 6000);
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  // Save Settings & Sync Schedule with Bot
+  const handleSaveSettings = async () => {
+    if (!settings) return;
+    try {
+      setTriggering(true);
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings)
+      });
+      if (res.ok) {
+        setTriggerMsg(`✅ Settings updated! Standup scheduled at ${settings.standupTime || "10:30"} AM with ${settings.autoNudgeEnabled !== false ? `${settings.nudgeIntervalMinutes || 45}m persistent auto-nudge` : "auto-nudge disabled"}.`);
+        setTimeout(() => setTriggerMsg(null), 7000);
+      }
+    } catch (err: any) {
+      setTriggerMsg("Failed to save settings. Please try again.");
+      setTimeout(() => setTriggerMsg(null), 5000);
+    } finally {
+      setTriggering(false);
+    }
+  };
+
 
   // Add Employee
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -340,10 +380,19 @@ export default function StandupDashboard() {
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span> Google Chat Bot Live
                 </span>
+                <button
+                  onClick={() => setActiveTab("settings")}
+                  title="Click to customize Standup Time & Auto-Nudge Interval"
+                  className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 flex items-center gap-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all cursor-pointer"
+                >
+                  <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>{settings?.standupTime || "10:30"} AM Daily • {settings?.autoNudgeEnabled !== false ? `${settings?.nudgeIntervalMinutes || 45}m Nudge` : "Nudge Off"}</span>
+                </button>
               </div>
               <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
                 <Calendar className="w-3.5 h-3.5" /> {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} • <Clock className="w-3.5 h-3.5 ml-1" /> {currentTime || "Live"}
               </p>
+
             </div>
           </div>
 
@@ -942,12 +991,13 @@ export default function StandupDashboard() {
                     <h3 className="font-bold text-sm text-slate-900 dark:text-white">Pending Response ({pendingEmployees.length})</h3>
                   </div>
                   <button
-                    onClick={handleTriggerBot}
+                    onClick={handleNudgePending}
                     disabled={triggering || pendingEmployees.length === 0}
-                    className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
-                    <Send className="w-3 h-3" /> Nudge Pending
+                    <Send className="w-3.5 h-3.5" /> Nudge Pending ({pendingEmployees.length})
                   </button>
+
                 </div>
 
                 {pendingEmployees.length === 0 ? (
@@ -1056,10 +1106,174 @@ export default function StandupDashboard() {
         )}
 
         {/* ==================================================================== */}
-        {/* SPACE 5: BOT CONFIGURATION & SETTINGS                                */}
+        {/* ==================================================================== */}
+        {/* SPACE 5: BOT CONFIGURATION & SCHEDULE SETTINGS                      */}
         {/* ==================================================================== */}
         {activeTab === "settings" && (
           <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+            {/* Standup Schedule & Auto-Nudge Card */}
+            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+              <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/20">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">Standup Timing & Automated Reminders</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Change broadcast time directly in this dashboard. Bot automatically updates its schedule.</p>
+                </div>
+              </div>
+
+              {/* Time Configuration with Quick Presets */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                    Daily Standup Broadcast Time
+                  </label>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-500/20">
+                    Active: {settings?.standupTime || "10:30"} AM
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <input
+                    type="time"
+                    value={settings?.standupTime || "10:30"}
+                    onChange={(e) => setSettings(prev => prev ? { ...prev, standupTime: e.target.value } : null)}
+                    className="w-full px-4 py-2.5 text-base font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono shadow-sm"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {["09:30", "10:00", "10:30", "11:00"].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setSettings(prev => prev ? { ...prev, standupTime: t } : null)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          settings?.standupTime === t
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        {t} {parseInt(t.split(":")[0]) < 12 ? "AM" : "PM"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  ⚡ Bot will automatically ping all registered employees at <b>{settings?.standupTime || "10:30"} AM</b> every morning.
+                </p>
+              </div>
+
+              {/* Auto-Nudge Interval Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
+                    Auto-Nudge Interval
+                  </label>
+                  <select
+                    value={settings?.nudgeIntervalMinutes || 45}
+                    onChange={(e) => setSettings(prev => prev ? { ...prev, nudgeIntervalMinutes: parseInt(e.target.value) } : null)}
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value={15}>Every 15 Minutes (Fast Pace)</option>
+                    <option value={30}>Every 30 Minutes</option>
+                    <option value={45}>Every 45 Minutes (Recommended)</option>
+                    <option value={60}>Every 60 Minutes</option>
+                    <option value={90}>Every 90 Minutes</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col justify-end">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block">Auto-Nudge Loop</span>
+                      <span className="text-[11px] text-slate-400">Re-pings until reply</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(prev => prev ? { ...prev, autoNudgeEnabled: !prev.autoNudgeEnabled } : null)}
+                      className={`w-12 h-6 rounded-full transition-colors relative p-0.5 shrink-0 cursor-pointer ${
+                        settings?.autoNudgeEnabled !== false ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-full bg-white transition-transform block shadow-sm ${
+                          settings?.autoNudgeEnabled !== false ? "translate-x-6" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Explanatory Rule Banner */}
+              <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-500/20 text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                <div>
+                  <b className="font-semibold">Persistent Follow-up Rule:</b> If an employee has not checked in within <b>{settings?.nudgeIntervalMinutes || 45} minutes</b> after the <b>{settings?.standupTime || "10:30"} AM</b> prompt, the bot will automatically send a follow-up reminder every {settings?.nudgeIntervalMinutes || 45} minutes until they reply.
+                </div>
+              </div>
+
+              {/* Bot Custom Morning Prompt */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
+                  Custom Morning Standup Prompt
+                </label>
+                <textarea
+                  rows={2}
+                  value={settings?.botPrompt || "Good morning team! ☕ What epic dragons are you slaying across your projects today?"}
+                  onChange={(e) => setSettings(prev => prev ? { ...prev, botPrompt: e.target.value } : null)}
+                  className="w-full px-3.5 py-2 text-xs md:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 leading-relaxed"
+                />
+              </div>
+
+              {/* Save & Apply Button */}
+              <div className="pt-2 flex items-center justify-between flex-wrap gap-3">
+                <span className="text-xs text-slate-400">Settings save to database & sync with Google Apps Script automatically.</span>
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={triggering}
+                  className="px-5 py-2.5 text-xs md:text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/25 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  Save & Apply Schedule to Bot
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Bot Actions & Live Controls */}
+            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">Bot Actions & Manual Dispatch</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Trigger morning broadcasts or poke pending employees on-demand without waiting for the automated timer.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <button
+                  onClick={handleTriggerBot}
+                  disabled={triggering}
+                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <Send className="w-4 h-4 text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
+                    <span className="font-bold text-xs md:text-sm text-slate-900 dark:text-white">Broadcast Standup Now</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Send standup prompts to all registered employee chats.</p>
+                </button>
+
+                <button
+                  onClick={handleNudgePending}
+                  disabled={triggering || pendingEmployees.length === 0}
+                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <Clock className="w-4 h-4 text-amber-500 group-hover:rotate-12 transition-transform" />
+                    <span className="font-bold text-xs md:text-sm text-slate-900 dark:text-white">Poke Pending Now ({pendingEmployees.length})</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Send 45-min follow-up reminders to unresponded team members.</p>
+                </button>
+              </div>
+            </div>
+
             {/* Live Webhook Card */}
             <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
               <div className="flex items-center gap-3">
@@ -1068,7 +1282,7 @@ export default function StandupDashboard() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">Google Chat Z-Mode Webhook Endpoint</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Paste this URL into your Google Cloud Console Chat API Configuration.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Endpoint URL configured in Google Cloud Console Google Chat API.</p>
                 </div>
               </div>
 
@@ -1095,7 +1309,7 @@ export default function StandupDashboard() {
             <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Google Apps Script Web App (Broadcast Dispatcher)</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                When you click "Send Standup to Team", our server pings this Apps Script Web App to broadcast the prompt to all employee 1:1 DMs.
+                When you click "Send Standup to Team" or "Poke Pending Now", our server triggers this Apps Script Web App to broadcast the prompt into employee 1:1 chats.
               </p>
               <input
                 type="text"
@@ -1104,23 +1318,10 @@ export default function StandupDashboard() {
                 placeholder="https://script.google.com/macros/s/.../exec"
                 className="w-full px-3.5 py-2 text-xs md:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono shadow-sm"
               />
-              <button
-                onClick={async () => {
-                  if (!settings) return;
-                  await fetch("/api/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ appsScriptUrl: settings.appsScriptUrl })
-                  });
-                  alert("Settings saved successfully!");
-                }}
-                className="px-4 py-2 text-xs md:text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/25 cursor-pointer"
-              >
-                Save Configuration
-              </button>
             </div>
           </div>
         )}
+
 
         {/* ==================================================================== */}
         {/* MODAL: PROJECT DEEP-DIVE DRILL-DOWN MODAL                            */}

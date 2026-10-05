@@ -27,8 +27,12 @@ export interface StandupRecord {
 
 export interface CompanySettings {
   companyName: string;
-  standupStartTime: string;
-  standupEndTime: string;
+  standupTime: string; // e.g. "10:30"
+  standupStartTime?: string;
+  standupEndTime?: string;
+  autoNudgeEnabled: boolean;
+  nudgeIntervalMinutes: number; // e.g. 45
+  maxNudges: number;
   googleChatWebhookUrl: string;
   appsScriptUrl: string;
   botPrompt: string;

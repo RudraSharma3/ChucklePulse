@@ -1,89 +1,112 @@
-# 🤖 ChucklePulse for Google Chat — Daily Humorous Standup Bot & Executive Management Suite
+# 🤖 BytePx StandupPulse — Executive Standup Dashboard & Google Chat Bot
 
-> **The ultimate Google Chat Standup Bot & Executive Dashboard:** Sends daily 10:00–10:30 AM Direct Messages (DMs) to each employee in **Google Chat** with humorous, curious prompts & funny GIFs — then collects their responses and transforms them into structured executive intelligence for leadership.
+> **An intelligent Daily Standup Suite & Official Google Chat 1:1 Bot:** Automatically messages employees in direct 1:1 Google Chat DMs with humorous prompts & reaction GIFs, extracts their tasks, hours, project allocations, and blockers with intelligent NLP parsing, and transforms everything into real-time executive intelligence for leadership.
 
 ---
 
-## 🌟 Google Chat Workflow & Architecture
+## 🌟 Architecture & Data Flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Scheduler as ⏰ 10:15 AM Scheduler (Apps Script / Cron)
-    participant Bot as 🤖 ChuckleBot 3000
-    participant Emp as 👤 Employee (Google Chat DM)
-    participant Webhook as 📡 Dashboard Webhook API
-    participant Dashboard as 📊 Executive Management Dashboard
+    participant Admin as 👔 Admin / Dashboard
+    participant API as ⚡ Next.js API (/api/chat-bot)
+    participant GChat as 🤖 Google Chat 1:1 Bot
+    participant Emp as 👤 Employee (1:1 DM)
+    participant DB as 💾 Database & NLP Engine
+    participant UI as 📊 Executive Project Matrix
 
-    Scheduler->>Bot: Trigger Morning Standup Window (10:15 AM)
-    Bot->>Emp: Send Google Chat DM (CardsV2 + Humorous Prompt + Funny GIF)
-    Emp-->>Bot: Reply in Google Chat ("Wrestling cache bugs 4h, review PRs 2h")
-    Bot->>Webhook: Forward JSON payload with Tasks, Hours & Blocker
-    Webhook->>Dashboard: Auto-transform via NLP into Structured Executive Bullets
-    Dashboard->>Dashboard: Update Project Hours, KPIs, Blocker Alerts & Team Morale
-    Bot-->>Emp: Acknowledge with Witty Confirmation & Encouragement ☕🚀
+    Admin->>API: 1-Click "Send Standup to Team"
+    API->>GChat: Trigger Morning Check-in Broadcast
+    GChat->>Emp: 1:1 DM with Visual Prompt & Reaction GIF
+    Emp-->>GChat: Replies ("Working on Auth JWT login 6h, blocker: none")
+    GChat->>API: Webhook Event (MESSAGE)
+    API->>DB: Parse & Extract: Project (Auth), Tasks, Hours (6h), Blocker (None)
+    DB->>UI: Real-Time Live Update in Project Matrix
+    API-->>GChat: Return Structured Confirmation Card
+```
+
+---
+
+## 📂 Clean Project Structure
+
+```text
+BytePx-StandupPulse/
+├── app/                                 # Next.js 14 App Router
+│   ├── api/                             # Serverless API Webhook Routes
+│   │   ├── chat-bot/route.ts            # Google Chat Webhook (NLP parser & CardsV2 response)
+│   │   ├── employees/route.ts           # Team Directory CRUD
+│   │   ├── settings/route.ts            # Company & Bot Configuration
+│   │   ├── standups/route.ts            # Standup logs endpoint
+│   │   └── trigger-bot/route.ts         # 1-Click Broadcast Dispatcher
+│   ├── globals.css                      # Tailwind CSS & Glassmorphism design tokens
+│   ├── layout.tsx                       # Root layout & font optimization
+│   └── page.tsx                         # Executive Project Matrix & Standup Dashboard
+├── data/                                # Persistent Seed & Local Storage
+│   ├── employees.json                   # Team members list
+│   ├── settings.json                    # Workspace settings & Apps Script URL
+│   └── standups.json                    # Daily standup records
+├── google-chat-bot/                     # Apps Script Direct 1:1 Dispatcher
+│   ├── Code.gs                          # 1-Click direct 1:1 DM broadcast engine
+│   └── appsscript.json                  # Manifest configuration
+├── lib/                                 # Core Business Logic & Adapters
+│   ├── db.ts                            # Universal database adapter (Local + Serverless /tmp)
+│   ├── parser.ts                        # Intelligent Standup NLP Regex/Keyword Parser
+│   └── types.ts                         # Strongly typed TypeScript interfaces
+├── next.config.js                       # Next.js production configuration
+├── package.json                         # Scripts & clean dependencies
+├── postcss.config.js                    # PostCSS Tailwind plugin
+├── tailwind.config.ts                   # Tailwind theme & color tokens
+└── tsconfig.json                        # TypeScript configuration
 ```
 
 ---
 
 ## 🚀 Key Features
 
-1. **⏰ 10:00 - 10:30 AM Google Chat DM Broadcaster**:
-   - DMs each employee individually in their Google Chat 1:1 space with fresh, funny, and curious morning prompts.
-   - Embeds work-safe reaction GIFs (coffee cat, matrix coding, bug-squashing fire, victory dances).
-   - Zero-vulgarity corporate safety protocol.
+1. **📁 By Project & Initiative View**:
+   - Visual cards grouping team members under their active project.
+   - Sums allocated hours per initiative and flags blocker alerts.
 
-2. **🪄 Real-Time AI Executive Transformer**:
-   - Converts playful, casual Google Chat replies into clean executive bullet points, identified project allocations, and blocker alerts.
+2. **🧠 Intelligent NLP Parser**:
+   - Accurately identifies explicit and inferred projects (e.g. `Auth & Security`, `Core API`, `Mobile App`, `Payment & Billing`).
+   - Parses work hours, task descriptions, and blockers.
 
-3. **👔 Executive Data Hub & Management Suite**:
-   - Check-in rate metrics, total hours logged, workload distribution by initiative, and blocker resolution tracking.
-   - 1-click **Export to CSV**, **JSON Data Download**, and **Copy Briefing for Email/Slack**.
+3. **🤖 Google Chat 1:1 Bot Engine**:
+   - Messages employees in individual 1:1 DMs (no crowded group spaces).
+   - Rotating humorous morning check-in prompts & verified unblocked 3D reaction GIFs.
 
-4. **⚡ Zero-Cost Google Apps Script Deployment**:
-   - Uses native Google Workspace Apps Script (`Code.gs`) with zero server hosting costs, or optional Node.js Google Chat service.
+4. **📋 1-Click Executive Actions**:
+   - **Copy Briefing**: Generates a clean markdown briefing ready for Slack, WhatsApp, or Email.
+   - **Export CSV**: Instant spreadsheet data download.
+   - **Send Standup to Team**: Broadcasts check-in to all employees with one click.
 
 ---
 
-## 📂 Project Structure
+## 🛠️ Local Development
 
-```text
-Greeting/
-├── index.html                           # Google Chat Standup Suite & Executive UI
-├── styles.css                           # Modern glassmorphism & Google CardsV2 styling
-├── app.js                               # Google Chat engine, NLP parser & state
-├── server.js                            # Web server & Google Chat webhook receiver
-├── package.json                         # Node start scripts
-├── google-chat-bot/                     # Dedicated Google Chat Bot Integration
-│   ├── Code.gs                          # Production Google Apps Script code
-│   ├── appsscript.json                  # Google Apps Script manifest
-│   └── google-chat-node-bot.js          # Alternative Node.js Google Chat API daemon
-└── README.md                            # Documentation & Google Workspace setup guide
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Start local development server
+npm run dev
 ```
 
----
-
-## 🛠️ Step-by-Step Google Chat Bot Setup
-
-### Step 1: Open Google Apps Script
-1. Go to **[https://script.google.com](https://script.google.com)** and click **"New Project"**.
-2. Name it **"ChucklePulse Google Chat Bot"**.
-
-### Step 2: Paste `Code.gs` & `appsscript.json`
-1. Copy the code from [**`google-chat-bot/Code.gs`**](file:///c:/Users/HP/OneDrive/Desktop/Greeting/google-chat-bot/Code.gs) into the Apps Script editor.
-2. In Project Settings, check **"Show 'appsscript.json' manifest file in editor"** and paste the content from [**`google-chat-bot/appsscript.json`**](file:///c:/Users/HP/OneDrive/Desktop/Greeting/google-chat-bot/appsscript.json).
-3. Set your `DASHBOARD_API_URL` and add your team's Google Workspace emails to `CONFIG.EMPLOYEE_EMAILS`.
-
-### Step 3: Enable Google Chat API & Activate 10:15 AM Trigger
-1. In Google Cloud Console, enable the **Google Chat API**.
-2. Set the App Name to **"ChuckleBot 3000"**.
-3. In Google Apps Script, select `setupDailyStandupTrigger` from the function dropdown and click **Run**.
-4. That's it! Every weekday at 10:15 AM, ChuckleBot will automatically DM each employee in Google Chat!
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 💻 Local Testing
+## ☁️ Deployment (Vercel)
 
-The web dashboard and webhook simulator are running at:
+This project is built natively for **Vercel**:
 
-👉 **[http://localhost:3000](http://localhost:3000)**
+1. Push to your GitHub repository:
+   ```bash
+   git push origin main
+   ```
+2. In [Vercel Dashboard](https://vercel.com/new), import your repository.
+3. In **Google Cloud Console ➔ Google Chat API ➔ Configuration**:
+   - Set **Connection settings** to **HTTP endpoint URL**.
+   - Paste: `https://your-vercel-domain.vercel.app/api/chat-bot`.
+   - Click **Save**.

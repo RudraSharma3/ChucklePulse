@@ -42,6 +42,24 @@ export function getBotEndpointUrl(): string {
   return "https://chuckle-pulse.vercel.app/api/chat/google";
 }
 
+export function formatLocalTime(date: Date = new Date()): string {
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
+    hour12: true
+  });
+}
+
+export function formatLocalDate(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
 /**
  * Builds an interactive Standup Prompt Card v2
  */

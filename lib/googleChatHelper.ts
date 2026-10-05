@@ -190,7 +190,104 @@ export function buildHoursRequestCard(params: {
                 },
                 {
                   textParagraph: {
-                    text: "<i>👉 Tap an hour button above or reply directly with any number (e.g. \"6.5h\", \"5 hours\").</i>"
+                    text: "<i>👉 Tap a button above or reply directly in chat with your exact hours!</i>"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  };
+}
+
+/**
+ * Builds an interactive Capacity Check Card when an employee logs fewer than 8 hours
+ */
+export function buildRemainingHoursCard(params: {
+  userName: string;
+  project: string;
+  tasks: string;
+  loggedHours: number;
+  remainingHours: number;
+}) {
+  const endpointUrl = getBotEndpointUrl();
+  const logged = params.loggedHours;
+  const rem = params.remainingHours;
+
+  return {
+    cardsV2: [
+      {
+        cardId: `capacity-${Date.now()}`,
+        card: {
+          header: {
+            title: `⏰ Daily Capacity Check (${logged} / 8.0 hrs)`,
+            subtitle: `Logged ${logged} hrs on ${params.project}`,
+            imageUrl: BOT_ICON_URL,
+            imageType: "CIRCLE"
+          },
+          sections: [
+            {
+              widgets: [
+                {
+                  textParagraph: {
+                    text: `📝 <b>Logged so far:</b> ${logged} hrs on <b>${params.project}</b>`
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `💡 <i>Our workday is 8.0 hrs (9h office shift - 1h lunch).</i><br><br>👉 <b>Ok, what about the rest ${rem} hours?</b>`
+                  }
+                },
+                {
+                  buttonList: {
+                    buttons: [
+                      {
+                        text: `+${rem} hrs on ${params.project}`,
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitRemaining" },
+                              { key: "type", value: "same_project" },
+                              { key: "hours", value: String(rem) }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: `+${rem} hrs Awaiting Tasks`,
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitRemaining" },
+                              { key: "type", value: "awaiting" },
+                              { key: "hours", value: String(rem) }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: `Half-Day Leave (${logged}h)`,
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitRemaining" },
+                              { key: "type", value: "half_day" },
+                              { key: "hours", value: String(rem) }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `💬 <i>Tap an option above or reply directly in chat (e.g. "working on QA for ${rem}h" or "remaining ${rem}h on project y").</i>`
                   }
                 }
               ]

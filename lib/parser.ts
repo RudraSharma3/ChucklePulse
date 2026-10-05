@@ -21,8 +21,8 @@ export function parseStandupMessage(text: string): {
   let project = "General Tasks";
   let blocker = "None";
 
-  // Check if message is ONLY hours (e.g., "7.5", "7.5h", "8 hours", "6.5 hrs", "5h")
-  const onlyHoursMatch = clean.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)?$/i);
+  // Check if message is ONLY hours (e.g., "7.5", "7.5h", "8 hours", "6.5 hrs", "5h", "5 hoyrs")
+  const onlyHoursMatch = clean.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h)?$/i);
   const isOnlyHours = Boolean(onlyHoursMatch && parseFloat(onlyHoursMatch[1]) > 0 && parseFloat(onlyHoursMatch[1]) <= 24);
 
   // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave)
@@ -41,8 +41,8 @@ export function parseStandupMessage(text: string): {
     hasExplicitHours = true;
   }
 
-  // 2. Extract Explicit Hours (e.g. "for next 5 hours", "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
-  const hoursMatch = clean.match(/(?:for\s+next\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/i);
+  // 2. Extract Explicit Hours (e.g. "for 5 hoyrs", "for next 5 hours", "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
+  const hoursMatch = clean.match(/(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/i);
   if (hoursMatch) {
     hours = parseFloat(hoursMatch[1]);
     hasExplicitHours = true;
@@ -67,9 +67,9 @@ export function parseStandupMessage(text: string): {
   // 4. Extract Project Name with Precision
   if (!isAwaitingTask && !isOnLeave) {
     // Explicit syntax: Project: Name, Repo: Name, Feature: Name
-    const explicitMatch = clean.match(/(?:project|initiative|feature|repo)[:\s-]([a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
-    // Conversational action syntax: "i am working on project x", "working on xyz"
-    const actionMatch = clean.match(/(?:(?:i\s+am|i\'m|im)\s+)?(?:working on|working in|focusing on|assigned to|developing|building|debugging|refactoring|testing)\s+(?:the\s+)?(project\s+[a-zA-Z0-9\s_&-]+?|[a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
+    const explicitMatch = clean.match(/(?:project|initiative|feature|repo)[:\s-]([a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
+    // Conversational action syntax: "i will work on project x", "i am working on project x", "working on xyz", "will work on project x"
+    const actionMatch = clean.match(/(?:(?:i\s+will\s+be|i\s+will|will\s+be|will|i\s+am|i\'m|im)\s+)?(?:working on|working in|work on|work in|focusing on|assigned to|developing|building|debugging|refactoring|testing)\s+(?:the\s+)?(project\s+[a-zA-Z0-9\s_&-]+?|[a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
     const projectMatch = explicitMatch || actionMatch;
 
     if (projectMatch && projectMatch[1].trim().length >= 1 && projectMatch[1].trim().length <= 35) {
@@ -103,23 +103,19 @@ export function parseStandupMessage(text: string): {
       project = "AI & Machine Learning";
     } else if (lower.includes("data") || lower.includes("etl") || lower.includes("warehouse") || lower.includes("analytics")) {
       project = "Data Engineering";
+    } else if (lower.includes("qa") || lower.includes("testing") || lower.includes("test")) {
+      project = "QA & Testing";
     }
   }
 
   // 6. Clean task string thoroughly without smashing words together
   let tasks = clean
     .replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, ' ')
-    .replace(/(?:for\s+next\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/gi, ' ')
+    .replace(/(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/gi, ' ')
     .replace(/\(\s*\)/g, ' ')
     .replace(/\s+/g, ' ')
+    .replace(/\b(for\s+next\s+then|for\s+then|for\s+next|for|on|in|at|to|approx|around|and|then)\s*$/gi, '')
     .replace(/^[,;:\s-]+|[,;:\s-]+$/g, '')
-    .trim();
-
-  // Clean conversational remnants like "for next then"
-  tasks = tasks
-    .replace(/\bfor\s+next\s+then\b/gi, 'then')
-    .replace(/\bfor\s+then\b/gi, 'then')
-    .replace(/\s+/g, ' ')
     .trim();
 
   // Capitalize sentence start

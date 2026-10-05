@@ -187,19 +187,88 @@ function onMessage(event) {
     let existingDraft = null;
     try { if (existingDraftStr) existingDraft = JSON.parse(existingDraftStr); } catch (e) {}
 
-    // Case A: User had a pending draft and is now replying with hours
-    const onlyHoursMatch = text.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)?$/i);
+    // Case A: User had a pending draft with partial hours and is now replying for the rest
+    if (existingDraft && existingDraft.hours && existingDraft.hours > 0 && existingDraft.remainingHours && existingDraft.remainingHours > 0) {
+      let finalHours = 8.0;
+      let finalTasks = existingDraft.tasks;
+      let finalProject = existingDraft.project;
+      let finalBlocker = existingDraft.blocker;
+
+      if (/half\s+day|day\s+off|leave|taking\s+leave/i.test(text.toLowerCase())) {
+        finalHours = existingDraft.hours;
+        finalTasks = `${existingDraft.tasks} (Half-Day Leave)`;
+        finalBlocker = 'Half-Day Leave';
+      } else if (/awaiting|waiting|no\s+task|didnt\s+get|bench|free|no\s+work/i.test(text.toLowerCase())) {
+        finalHours = 8.0;
+        finalProject = `${existingDraft.project} + Standby`;
+        finalTasks = `${existingDraft.tasks} (${existingDraft.hours} hrs), Awaiting Tasks (${existingDraft.remainingHours} hrs)`;
+        finalBlocker = `Awaiting task allocation for ${existingDraft.remainingHours} hrs`;
+      } else {
+        const secondHours = parsed.hours > 0 ? parsed.hours : existingDraft.remainingHours;
+        const secondProject = parsed.project !== 'General Tasks' ? parsed.project : existingDraft.project;
+        finalHours = +(existingDraft.hours + secondHours).toFixed(1);
+        finalProject = secondProject === existingDraft.project ? existingDraft.project : `${existingDraft.project} & ${secondProject}`;
+        finalTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${parsed.tasks} (${secondHours}h)`;
+        finalBlocker = parsed.blocker !== 'None' ? parsed.blocker : existingDraft.blocker;
+      }
+
+      const record = {
+        id: "std_" + Date.now(),
+        name: senderName,
+        email: senderEmail || ("user_" + Date.now() + "@bytepx.com"),
+        dept: "Engineering",
+        tasks: finalTasks,
+        hours: finalHours,
+        project: finalProject,
+        blocker: finalBlocker,
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        source: "Google Chat 1:1 Bot DM"
+      };
+
+      saveStandupRecord(record);
+      props.deleteProperty(draftKey);
+      return buildConfirmationCard(senderName, record);
+    }
+
+    // Case B: User had a pending 0-hours draft and is now replying with hours
+    const onlyHoursMatch = text.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h)?$/i);
     const hasHours = parsed.hours > 0 || onlyHoursMatch;
 
     if (existingDraft && hasHours) {
-      const finalHours = parsed.hours > 0 ? parsed.hours : (onlyHoursMatch ? parseFloat(onlyHoursMatch[1]) : 7.5);
+      const providedHours = parsed.hours > 0 ? parsed.hours : (onlyHoursMatch ? parseFloat(onlyHoursMatch[1]) : 8.0);
+      
+      // If provided hours < 8.0, ask for the rest!
+      if (providedHours < 8.0) {
+        const remaining = +(8.0 - providedHours).toFixed(1);
+        props.setProperty(draftKey, JSON.stringify({
+          tasks: existingDraft.tasks,
+          project: existingDraft.project,
+          blocker: existingDraft.blocker,
+          hours: providedHours,
+          remainingHours: remaining
+        }));
+        return {
+          text: [
+            `⏰ *Daily Capacity Check (${providedHours} / 8.0 hrs)*`,
+            `━━━━━━━━━━━━━━━━━━━━━━━━`,
+            `📝 *Logged so far:* ${providedHours} hrs on *${existingDraft.project}*`,
+            `💡 _Our workday is 8.0 hrs (9h office shift - 1h lunch)._`,
+            ``,
+            `👉 *Ok, what about the rest ${remaining} hours?*`,
+            ``,
+            `_Reply with: "rest on ${existingDraft.project}", "working on QA for ${remaining}h", "awaiting tasks", or "half-day leave"_`
+          ].join("\n")
+        };
+      }
+
       const record = {
         id: "std_" + Date.now(),
         name: senderName,
         email: senderEmail || ("user_" + Date.now() + "@bytepx.com"),
         dept: "Engineering",
         tasks: existingDraft.tasks,
-        hours: finalHours,
+        hours: providedHours,
         project: existingDraft.project,
         blocker: existingDraft.blocker,
         date: new Date().toISOString().slice(0, 10),
@@ -212,22 +281,52 @@ function onMessage(event) {
       return buildConfirmationCard(senderName, record);
     }
 
-    // Case B: User submitted tasks without hours -> Ask ONLY for hours
+    // Case C: User submitted tasks without hours -> Ask ONLY for hours
     const isSpecialStatus = parsed.project.indexOf("Awaiting") >= 0 || parsed.project.indexOf("Leave") >= 0;
     if (parsed.hours === 0 && !isSpecialStatus && !onlyHoursMatch) {
-      props.setProperty(draftKey, JSON.stringify(parsed));
+      props.setProperty(draftKey, JSON.stringify({
+        tasks: parsed.tasks,
+        project: parsed.project,
+        blocker: parsed.blocker,
+        hours: 0,
+        remainingHours: 8.0
+      }));
       return {
         text: [
           `📝 *Tasks Recorded:* ${parsed.tasks}`,
           `📁 *Initiative:* *${parsed.project}*`,
           ``,
           `⏱️ *Quick Question for ${senderName}:* How many hours are you allocating today?`,
-          `👉 *Reply right here with your hours:* (e.g. \`6.5h\`, \`7.5 hours\`, \`8h\`)`
+          `👉 *Reply right here with your hours:* (e.g. \`5h\`, \`6.5h\`, \`8h\`)`
         ].join("\n")
       };
     }
 
-    // Case C: Full Standup with Hours or Special Status
+    // Case D: User submitted tasks with fewer than 8.0 hours (e.g. 5 hours) -> Follow up for rest!
+    if (parsed.hours < 8.0 && parsed.hours > 0 && !isSpecialStatus) {
+      const remaining = +(8.0 - parsed.hours).toFixed(1);
+      props.setProperty(draftKey, JSON.stringify({
+        tasks: parsed.tasks,
+        project: parsed.project,
+        blocker: parsed.blocker,
+        hours: parsed.hours,
+        remainingHours: remaining
+      }));
+      return {
+        text: [
+          `⏰ *Daily Capacity Check (${parsed.hours} / 8.0 hrs)*`,
+          `━━━━━━━━━━━━━━━━━━━━━━━━`,
+          `📝 *Logged so far:* ${parsed.hours} hrs on *${parsed.project}*`,
+          `💡 _Our workday is 8.0 hrs (9h office shift - 1h lunch)._`,
+          ``,
+          `👉 *Ok, what about the rest ${remaining} hours?*`,
+          ``,
+          `_Reply with: "rest on ${parsed.project}", "working on QA for ${remaining}h", "awaiting tasks", or "half-day leave"_`
+        ].join("\n")
+      };
+    }
+
+    // Case E: Full Standup with >= 8 Hours or Special Status
     const record = {
       id: "std_" + Date.now(),
       name: senderName,
@@ -652,7 +751,8 @@ function saveStandupRecord(record) {
  */
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "get_standups";
-  
+  const props = PropertiesService.getScriptProperties();
+
   if (action === "trigger") {
     const result = sendDirectMessageToAllEmployees(false);
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
@@ -667,9 +767,47 @@ function doGet(e) {
     const email = (e.parameter.email || "").toLowerCase();
     const space = e.parameter.space || "";
     if (email && space) {
-      PropertiesService.getScriptProperties().setProperty("DM_" + email, space);
+      props.setProperty("DM_" + email, space);
       console.log(`📌 Registered DM via webhook: ${email} -> ${space}`);
       return ContentService.createTextOutput(JSON.stringify({ success: true, registered: email, space: space })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (action === "get_employees") {
+    try {
+      const records = props.getProperty("EMPLOYEE_RECORDS") || "[]";
+      return ContentService.createTextOutput(records).setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (action === "sync_employee") {
+    try {
+      const email = (e.parameter.email || "").toLowerCase();
+      const name = e.parameter.name || "";
+      const dept = e.parameter.dept || "Engineering";
+      const role = e.parameter.role || "Team Member";
+      const space = e.parameter.space || "";
+      const id = e.parameter.id || ("emp_" + Date.now());
+
+      if (email) {
+        const raw = props.getProperty("EMPLOYEE_RECORDS") || "[]";
+        let list = [];
+        try { list = JSON.parse(raw); } catch (e) { list = []; }
+        const idx = list.findIndex(emp => emp.email.toLowerCase() === email);
+        const empObj = { id, name: name || email.split('@')[0], email, dept, role, webhookUrl: space || "" };
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...empObj };
+        } else {
+          list.push(empObj);
+        }
+        props.setProperty("EMPLOYEE_RECORDS", JSON.stringify(list));
+        if (space) props.setProperty("DM_" + email, space);
+        return ContentService.createTextOutput(JSON.stringify({ success: true, employee: empObj })).setMimeType(ContentService.MimeType.JSON);
+      }
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message })).setMimeType(ContentService.MimeType.JSON);
     }
   }
 
@@ -678,14 +816,12 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
   }
 
-
   if (action === "test") {
     const result = testRun();
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
   }
 
   try {
-    const props = PropertiesService.getScriptProperties();
     const records = props.getProperty("STANDUP_RECORDS") || "[]";
     return ContentService.createTextOutput(records).setMimeType(ContentService.MimeType.JSON);
   } catch (e) {
@@ -698,14 +834,27 @@ function doGet(e) {
  */
 function doPost(e) {
   try {
+    const props = PropertiesService.getScriptProperties();
     if (e && e.postData && e.postData.contents) {
-      const event = JSON.parse(e.postData.contents);
-      if (event.type === "MESSAGE") {
-        const reply = onMessage(event);
+      const data = JSON.parse(e.postData.contents);
+      
+      // Handle action from POST payload
+      if (data.action === "save_employees" && Array.isArray(data.employees)) {
+        props.setProperty("EMPLOYEE_RECORDS", JSON.stringify(data.employees));
+        return ContentService.createTextOutput(JSON.stringify({ success: true, count: data.employees.length })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      if (data.action === "save_standup" && data.record) {
+        saveStandupRecord(data.record);
+        return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      if (data.type === "MESSAGE") {
+        const reply = onMessage(data);
         return ContentService.createTextOutput(JSON.stringify(reply)).setMimeType(ContentService.MimeType.JSON);
       }
-      if (event.type === "ADDED_TO_SPACE") {
-        const reply = onAddToSpace(event);
+      if (data.type === "ADDED_TO_SPACE") {
+        const reply = onAddToSpace(data);
         return ContentService.createTextOutput(JSON.stringify(reply)).setMimeType(ContentService.MimeType.JSON);
       }
     }

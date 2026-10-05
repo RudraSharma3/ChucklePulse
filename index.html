@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Company Daily Standup Dashboard & Google Chat Bot. Simple, clean, un-bloated work tracking for real teams.">
+  <title>Daily Standup Dashboard &amp; Google Chat Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+
+  <div class="app-shell">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="app-logo">
+          <i class="fa-solid fa-comments"></i>
+        </div>
+        <div>
+          <h1 id="header-company-name">My Company</h1>
+          <span class="header-sub">Daily Standup &amp; Google Chat Bot</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button id="btn-send-gchat-now" class="btn btn-primary" title="Send standup prompt to all team members">
+          <i class="fa-solid fa-paper-plane"></i> Send Standup to All Employees
+        </button>
+        <button id="theme-toggle-btn" class="btn-theme" title="Toggle Light/Dark Theme">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Bar -->
+    <nav class="app-nav">
+      <button class="nav-item active" data-tab="dashboard">
+        <i class="fa-solid fa-chart-column"></i> Today's Standups
+      </button>
+      <button class="nav-item" data-tab="employees">
+        <i class="fa-solid fa-users"></i> Company Employees (<span id="emp-count-badge">0</span>)
+      </button>
+      <button class="nav-item" data-tab="settings">
+        <i class="fa-solid fa-gear"></i> Google Chat &amp; Settings
+      </button>
+    </nav>
+
+    <!-- TAB 1: TODAY'S STANDUPS -->
+    <section id="tab-dashboard" class="tab-content active">
+      <!-- Metric Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span class="kpi-label">Team Members</span>
+          <span class="kpi-val" id="kpi-total-emp">0</span>
+          <span class="kpi-sub">Registered employees</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Checked In Today</span>
+          <span class="kpi-val text-success" id="kpi-checked-in">0 / 0</span>
+          <span class="kpi-sub" id="kpi-checkin-pct">0% response rate</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Total Logged Hours</span>
+          <span class="kpi-val text-primary" id="kpi-total-hours">0 hrs</span>
+          <span class="kpi-sub">Planned work today</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-label">Blockers Flagged</span>
+          <span class="kpi-val text-warning" id="kpi-blockers">0</span>
+          <span class="kpi-sub">Need manager attention</span>
+        </div>
+      </div>
+
+      <!-- Action Bar & Table -->
+      <div class="content-card">
+        <div class="card-toolbar">
+          <div class="toolbar-left">
+            <h2>Today's Work Logs (<span id="today-date-str"></span>)</h2>
+            <p class="text-muted">Real responses collected from Google Chat or logged directly.</p>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn btn-secondary" id="btn-open-quick-log">
+              <i class="fa-solid fa-plus"></i> Log Standup
+            </button>
+            <button class="btn btn-outline" id="btn-copy-summary">
+              <i class="fa-regular fa-copy"></i> Copy Summary
+            </button>
+            <button class="btn btn-outline" id="btn-download-csv">
+              <i class="fa-solid fa-download"></i> CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="table-filters">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="standup-search-input" placeholder="Search by name, task, or project...">
+          </div>
+          <select id="standup-dept-filter" class="form-control filter-select">
+            <option value="all">All Departments</option>
+          </select>
+        </div>
+
+        <!-- Standups Table -->
+        <div class="table-wrapper">
+          <table class="data-table" id="standups-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Time</th>
+                <th>What They Are Doing Today</th>
+                <th>Hours</th>
+                <th>Project</th>
+                <th>Blockers</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="standups-table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty State -->
+        <div id="standups-empty-state" class="empty-state">
+          <i class="fa-regular fa-calendar-check empty-icon"></i>
+          <h3>No Standup Logs For Today Yet</h3>
+          <p class="text-muted">Once your employees reply to the Google Chat Bot or you click <strong>"Log Standup"</strong>, their responses will appear here cleanly.</p>
+          <div class="empty-actions">
+            <button class="btn btn-primary" onclick="App.triggerGoogleChatStandup()">
+              <i class="fa-solid fa-paper-plane"></i> Send Standup Prompt to All Employees
+            </button>
+            <button class="btn btn-secondary" onclick="App.openQuickLogModal()">
+              <i class="fa-solid fa-plus"></i> Manually Add Check-In
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: COMPANY EMPLOYEES -->
+    <section id="tab-employees" class="tab-content">
+      <div class="content-card">
+        <div class="card-toolbar">
+          <div>
+            <h2>Company Employee Directory</h2>
+            <p class="text-muted">Manage your team members. The bot connects directly to their Google Workspace accounts for 1:1 standups.</p>
+          </div>
+          <button class="btn btn-primary" id="btn-open-add-emp">
+            <i class="fa-solid fa-user-plus"></i> Add Employee
+          </button>
+        </div>
+
+        <!-- Employees Table -->
+        <div class="table-wrapper">
+          <table class="data-table" id="employees-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Work Email</th>
+                <th>Department</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="employees-table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty State -->
+        <div id="employees-empty-state" class="empty-state">
+          <i class="fa-solid fa-users-slash empty-icon"></i>
+          <h3>No Employees Added Yet</h3>
+          <p class="text-muted">Add your company team members below to start tracking their daily work.</p>
+          <button class="btn btn-primary" onclick="App.openAddEmployeeModal()">
+            <i class="fa-solid fa-user-plus"></i> Add Your First Employee
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: GOOGLE CHAT & SETTINGS -->
+    <section id="tab-settings" class="tab-content">
+      <div class="content-card">
+        <h2>Google Chat Bot &amp; Standup Settings</h2>
+        <p class="text-muted">Configure your company standup window and general Google Chat Webhook.</p>
+
+        <form id="settings-form" class="settings-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="setting-company-name">Company / Team Name:</label>
+              <input type="text" id="setting-company-name" class="form-control" placeholder="e.g. BytePx" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Standup Time Window:</label>
+              <div class="time-range-row">
+                <input type="time" id="setting-start-time" class="form-control" value="10:00">
+                <span>to</span>
+                <input type="time" id="setting-end-time" class="form-control" value="10:30">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-appscript-url">
+              <i class="fa-solid fa-cloud-bolt text-primary"></i> Google Apps Script Web App URL (For Direct 1:1 Bot DMs):
+            </label>
+            <input type="url" id="setting-appscript-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+            <small class="form-hint">
+              Deploy your Apps Script as a Web App (Access: Anyone) to trigger 1:1 Bot DMs directly from the dashboard!
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-webhook-url">
+              <i class="fa-brands fa-google"></i> General Google Chat Webhook URL (Fallback / Team Space):
+            </label>
+            <input type="url" id="setting-webhook-url" class="form-control" placeholder="https://chat.googleapis.com/v1/spaces/.../messages?key=...&token=...">
+            <small class="form-hint">
+              Used if an employee doesn't have an individual webhook configured in the Employee Directory.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-bot-prompt">Morning Humorous Prompt:</label>
+            <textarea id="setting-bot-prompt" class="form-control" rows="2" placeholder="Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?"></textarea>
+            <small class="form-hint">A random funny work-safe animated GIF will be automatically attached to every message!</small>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-floppy-disk"></i> Save Settings
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-test-gchat-webhook">
+              <i class="fa-solid fa-paper-plane"></i> Send Test Message to Google Chat
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL: ADD / EDIT EMPLOYEE -->
+  <div class="modal-backdrop" id="modal-add-emp">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-emp-title"><i class="fa-solid fa-user-plus text-primary"></i> Add Company Employee</h3>
+        <button class="modal-close" onclick="App.closeModals()">&times;</button>
+      </div>
+      <form id="form-add-emp" class="modal-body">
+        <input type="hidden" id="emp-input-id" value="">
+        <div class="form-group">
+          <label class="form-label" for="emp-input-name">Full Name *</label>
+          <input type="text" id="emp-input-name" class="form-control" placeholder="e.g. Rudra Sharma" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="emp-input-email">Work Email (Google Workspace) *</label>
+          <input type="email" id="emp-input-email" class="form-control" placeholder="e.g. rudra@bytepx.com" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="emp-input-dept">Department</label>
+            <input type="text" id="emp-input-dept" class="form-control" placeholder="e.g. IT, Engineering, Marketing">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="emp-input-role">Job Title / Role</label>
+            <input type="text" id="emp-input-role" class="form-control" placeholder="e.g. Associate ML Engineer">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-emp">Save Employee</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: QUICK LOG STANDUP -->
+  <div class="modal-backdrop" id="modal-quick-log">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-plus text-primary"></i> Log Daily Standup</h3>
+        <button class="modal-close" onclick="App.closeModals()">&times;</button>
+      </div>
+      <form id="form-quick-log" class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="log-select-emp">Select Employee *</label>
+          <select id="log-select-emp" class="form-control" required>
+            <!-- Rendered via JS -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="log-input-tasks">What are they doing today? *</label>
+          <textarea id="log-input-tasks" class="form-control" rows="3" placeholder="e.g. Slaying bugs in payment API (4 hrs), reviewing PRs (2 hrs)" required></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="log-input-hours">Hours Planned Today</label>
+            <input type="number" id="log-input-hours" class="form-control" step="0.5" min="1" max="14" value="7.5" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="log-input-project">Project</label>
+            <input type="text" id="log-input-project" class="form-control" placeholder="e.g. v2.4 Release, ML Models">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="log-input-blocker">Any Blockers? (Optional)</label>
+          <input type="text" id="log-input-blocker" class="form-control" placeholder="e.g. None / Waiting on API token">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="App.closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Check-In</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <span id="toast-text">Action successful!</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -62,8 +62,11 @@ export async function POST(req: NextRequest) {
     eventType = 'ADDED_TO_SPACE';
   }
 
-  const isAddOn = Boolean(
-    event.commonEventObject || event.chat || event.authorizationEventObject || !event.type
+  const isCardAction = Boolean(
+    eventType === 'CARD_CLICKED' ||
+    event.chat?.buttonClickedPayload ||
+    event.commonEventObject?.invokedFunction ||
+    event.action
   );
 
   // 2. Extract User & Space Identity
@@ -119,23 +122,32 @@ export async function POST(req: NextRequest) {
     if (eventType === 'ADDED_TO_SPACE') {
       const prompt = ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
       const promptCard = buildStandupPromptCard({ userName: firstName, prompt });
-      return chatJson(formatChatResponse(promptCard, { isAddOn }));
+      return chatJson(formatChatResponse(promptCard));
     }
 
     // -------------------------------------------------------------
     // EVENT 2: CARD CLICKED / FORM SUBMIT / HOUR BUTTONS
     // -------------------------------------------------------------
-    if (eventType === 'CARD_CLICKED') {
+    if (isCardAction) {
       const paramsMap: Record<string, string> = {};
-      const parseParams = (source: any) => {
-        if (!source) return;
-        if (Array.isArray(source)) {
-          for (const item of source) {
-            if (item?.key && item?.value !== undefined) paramsMap[item.key] = String(item.value);
-            else if (item?.name && item?.value !== undefined) paramsMap[item.name] = String(item.value);
+      const sources = [
+        event.commonEventObject?.parameters,
+        event.action?.parameters,
+        event.chat?.buttonClickedPayload?.action?.parameters,
+        event.parameters
+      ];
+      for (const src of sources) {
+        if (!src) continue;
+        if (Array.isArray(src)) {
+          for (const item of src) {
+            if (item?.key !== undefined && item?.value !== undefined) {
+              paramsMap[String(item.key)] = String(item.value);
+            } else if (item?.name !== undefined && item?.value !== undefined) {
+              paramsMap[String(item.name)] = String(item.value);
+            }
           }
-        } else if (typeof source === 'object') {
-          for (const [k, v] of Object.entries(source)) {
+        } else if (typeof src === 'object') {
+          for (const [k, v] of Object.entries(src)) {
             if (v !== null && typeof v === 'object' && 'value' in (v as any)) {
               paramsMap[k] = String((v as any).value);
             } else if (v !== null && v !== undefined) {
@@ -143,17 +155,13 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-      };
-
-      parseParams(event.commonEventObject?.parameters);
-      parseParams(event.action?.parameters);
-      parseParams(event.chat?.buttonClickedPayload?.action?.parameters);
-      parseParams(event.parameters);
+      }
 
       // Handle 1-Click Hour Selection Button
       const hoursParam = paramsMap.hours || paramsMap.hour || paramsMap.value;
       if (hoursParam) {
-        const selectedHours = parseFloat(hoursParam);
+        const parsedFloat = parseFloat(hoursParam.trim());
+        const selectedHours = Number.isFinite(parsedFloat) && parsedFloat >= 0 && parsedFloat <= 24 ? parsedFloat : 7.5;
         const draft = db.getPendingDraft(userKey);
 
         const now = new Date();
@@ -185,9 +193,8 @@ export async function POST(req: NextRequest) {
           time: timeStr
         });
 
-        return chatJson(formatChatResponse(confirmationCard, { isCardAction: true, isAddOn }));
+        return chatJson(formatChatResponse(confirmationCard, { isCardAction: true }));
       }
-
 
       // Handle other custom form inputs
       const formInputs =
@@ -196,7 +203,7 @@ export async function POST(req: NextRequest) {
         event.chat?.buttonClickedPayload?.action?.formInputs ??
         {};
 
-      const itemId = paramsMap.itemId || 'general';
+      const itemId = paramsMap.itemId || paramsMap.recordId || 'general';
       const fieldName = paramsMap.inputFieldName || `input_${itemId}`;
       const submittedValue = extractInputValue(formInputs[fieldName]);
 
@@ -204,7 +211,7 @@ export async function POST(req: NextRequest) {
         `Thank you ${userName}! Your update for item \`${itemId}\` was submitted: **${submittedValue || 'Completed'}**.`
       );
       return chatJson(
-        formatChatResponse(confirmationCard, { isCardAction: true, isAddOn })
+        formatChatResponse(confirmationCard, { isCardAction: true })
       );
     }
 
@@ -230,7 +237,7 @@ export async function POST(req: NextRequest) {
     if (!cleanText || ['hi', 'hello', 'hey', 'help', '/standup', '/sync', 'standup'].includes(lowerText)) {
       const prompt = ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
       const promptCard = buildStandupPromptCard({ userName: firstName, prompt });
-      return chatJson(formatChatResponse(promptCard, { isAddOn }));
+      return chatJson(formatChatResponse(promptCard));
     }
 
     // Case 3B: Pending Tasks Review Command
@@ -244,7 +251,7 @@ export async function POST(req: NextRequest) {
         subtitle: `${sampleItems.length} items to confirm`,
         items: sampleItems,
       });
-      return chatJson(formatChatResponse(interactiveCard, { isAddOn }));
+      return chatJson(formatChatResponse(interactiveCard));
     }
 
     // Parse the incoming message
@@ -284,7 +291,7 @@ export async function POST(req: NextRequest) {
         time: timeStr
       });
 
-      return chatJson(formatChatResponse(confirmationCard, { isAddOn }));
+      return chatJson(formatChatResponse(confirmationCard));
     }
 
     // Case 3D: User submitted tasks WITHOUT hours (and not unassigned/leave) -> Ask ONLY for hours
@@ -301,7 +308,7 @@ export async function POST(req: NextRequest) {
         project: parsed.project
       });
 
-      return chatJson(formatChatResponse(hoursPromptCard, { isAddOn }));
+      return chatJson(formatChatResponse(hoursPromptCard));
     }
 
     // Case 3E: Full Standup with Hours or Special Status -> Log Immediately
@@ -336,14 +343,14 @@ export async function POST(req: NextRequest) {
       time: timeStr
     });
 
-    return chatJson(formatChatResponse(confirmationCard, { isAddOn }));
+    return chatJson(formatChatResponse(confirmationCard));
 
   } catch (err) {
     console.error('Unhandled error processing Google Chat event:', err);
     return chatJson(
       formatChatResponse(
         { text: `⚠️ Error: ${err instanceof Error ? err.message : String(err)}` },
-        { isCardAction: eventType === 'CARD_CLICKED', isAddOn }
+        { isCardAction }
       )
     );
   }

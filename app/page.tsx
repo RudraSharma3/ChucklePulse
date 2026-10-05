@@ -335,7 +335,7 @@ export default function StandupDashboard() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  {settings?.companyName || "BytePx"} <span className="text-indigo-600 dark:text-indigo-400 font-semibold">StandupPulse</span>
+                  BytePx <span className="text-indigo-600 dark:text-indigo-400 font-semibold">StandupPulse</span>
                 </h1>
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span> Google Chat Bot Live
@@ -347,30 +347,18 @@ export default function StandupDashboard() {
             </div>
           </div>
 
-          {/* Right Action Bar with Theme Toggle */}
+          {/* Right Action Bar with Theme Icon */}
           <div className="flex items-center flex-wrap gap-2.5 w-full md:w-auto">
-            {/* Theme Switcher Button */}
+            {/* Minimalist Sun/Moon Theme Symbol */}
             <button
               onClick={toggleTheme}
               title={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 transition-all flex items-center gap-2 text-xs font-semibold shadow-sm cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 transition-all flex items-center justify-center shadow-sm cursor-pointer group"
             >
               {theme === "light" ? (
-                <>
-                  <Sun className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  <span>Light Mode</span>
-                  <span className="w-7 h-4 rounded-full bg-slate-300 relative inline-flex items-center p-0.5 ml-1">
-                    <span className="w-3 h-3 rounded-full bg-white transition-transform translate-x-0" />
-                  </span>
-                </>
+                <Moon className="w-5 h-5 text-indigo-600 group-hover:-rotate-12 transition-transform" />
               ) : (
-                <>
-                  <Moon className="w-4 h-4 text-indigo-400 fill-indigo-400" />
-                  <span>Dark Mode</span>
-                  <span className="w-7 h-4 rounded-full bg-indigo-600 relative inline-flex items-center p-0.5 ml-1">
-                    <span className="w-3 h-3 rounded-full bg-white transition-transform translate-x-3" />
-                  </span>
-                </>
+                <Sun className="w-5 h-5 text-amber-400 group-hover:rotate-45 transition-transform" />
               )}
             </button>
 

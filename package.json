@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "description": "Humorous Daily Standup Bot & Executive Work Logging Suite",
   "scripts": {
-    "start": "node local-server.js",
-    "dev": "node local-server.js",
-    "slack-bot": "node bot-integrations/slack-standup-bot.js",
-    "discord-bot": "node bot-integrations/discord-standup-bot.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "keywords": [
     "standup-bot",
@@ -16,5 +15,21 @@
     "executive-dashboard"
   ],
   "author": "Antigravity AI",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.6.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.52.0",
+    "next": "^16.3.8",
+    "postcss": "^8.5.28",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
+  }
 }

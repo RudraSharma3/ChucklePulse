@@ -181,28 +181,19 @@ function sendDirectMessageToAllEmployees() {
 function buildPromptCard(userName) {
   const name = userName ? userName.split(' ')[0] : "Champion";
   const prompt = ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
-  const gif = ROTATING_GIFS[Math.floor(Math.random() * ROTATING_GIFS.length)];
 
   return {
-    text: `⏰ *BytePx Daily Standup*\nGood morning ${name}!\n\n*${prompt}*\n\n👉 _Reply directly to this chat with your planned tasks, hours, and any blockers!_`,
-    cardsV2: [{
-      cardId: "standup_prompt_" + Date.now(),
-      card: {
-        header: {
-          title: "⏰ BytePx Daily Standup",
-          subtitle: `Good morning ${name}! Time to share today's mission.`,
-          imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-          imageType: "CIRCLE"
-        },
-        sections: [{
-          widgets: [
-            { textParagraph: { text: `<b>${prompt}</b>` } },
-            { image: { imageUrl: gif.url, altText: gif.title } },
-            { textParagraph: { text: "<i>👉 Reply directly to this chat with your planned tasks, hours, and any blockers!</i>" } }
-          ]
-        }]
-      }
-    }]
+    text: [
+      `⏰ *BytePx Daily Standup*`,
+      `Good morning *${name}*! 👋`,
+      ``,
+      `💡 *${prompt}*`,
+      ``,
+      `━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `👉 *Reply to this chat with your update:*`,
+      `\`Project: <Project Name>, Tasks: <Your Tasks>, Hours: <e.g. 7.5h>, Blocker: <None or issue>\``,
+      `_Example: Working on Auth & Security JWT login (6.5h), blocker: none_`
+    ].join("\n")
   };
 }
 
@@ -210,28 +201,20 @@ function buildPromptCard(userName) {
  * 🎨 Helper: Confirmation Card
  */
 function buildConfirmationCard(senderName, record) {
-  const blockerLine = record.blocker === "None" ? "🟢 *No Blockers*" : `⚠️ *Blocker:* ${record.blocker}`;
+  const blockerLine = record.blocker === "None" ? "🟢 *Blockers:* None" : `🚨 *Blocker Alert:* ${record.blocker}`;
 
   return {
-    text: `✅ *Daily Standup Logged for ${senderName}!* \n\n📝 *Tasks:* ${record.tasks}\n⏱️ *Hours:* ${record.hours} hrs  |  📁 *Project:* ${record.project}\n${blockerLine}\n\n_Have a great and productive day! 🚀_`,
-    cardsV2: [{
-      cardId: "standup_confirmation_" + Date.now(),
-      card: {
-        header: {
-          title: "✅ Daily Standup Recorded!",
-          subtitle: `Thanks ${senderName.split(' ')[0]}, your check-in has been logged.`,
-          imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-          imageType: "CIRCLE"
-        },
-        sections: [{
-          widgets: [
-            { textParagraph: { text: `📝 <b>Tasks:</b> ${record.tasks}` } },
-            { textParagraph: { text: `⏱️ <b>Hours:</b> ${record.hours} hrs  |  📁 <b>Project:</b> ${record.project}` } },
-            { textParagraph: { text: record.blocker === "None" ? "🟢 <b>No Blockers</b>" : `⚠️ <b>Blocker:</b> ${record.blocker}` } }
-          ]
-        }]
-      }
-    }]
+    text: [
+      `✅ *Daily Standup Logged for ${senderName}!*`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `📁 *Project:* *${record.project}*`,
+      `📝 *Tasks:* ${record.tasks}`,
+      `⏱️ *Hours:* *${record.hours} hrs*`,
+      `${blockerLine}`,
+      `🕒 *Recorded At:* ${record.time}`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `_Logged in StandupPulse Dashboard. Have a productive day! 🚀_`
+    ].join("\n")
   };
 }
 

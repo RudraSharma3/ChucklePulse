@@ -5,7 +5,9 @@ import {
   buildStandupConfirmationCard,
   buildHoursRequestCard,
   buildInteractiveCard,
-  buildSuccessCard
+  buildSuccessCard,
+  formatLocalTime,
+  formatLocalDate
 } from '@/lib/googleChatHelper';
 import { parseStandupMessage } from '@/lib/parser';
 import { db } from '@/lib/db';
@@ -165,7 +167,8 @@ export async function POST(req: NextRequest) {
         const draft = db.getPendingDraft(userKey);
 
         const now = new Date();
-        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const timeStr = formatLocalTime(now);
+        const dateStr = formatLocalDate(now);
 
         const record: StandupRecord = {
           id: "std_" + Date.now(),
@@ -176,7 +179,7 @@ export async function POST(req: NextRequest) {
           hours: selectedHours,
           project: draft ? draft.project : "General Tasks",
           blocker: draft ? draft.blocker : "None",
-          date: now.toISOString().slice(0, 10),
+          date: dateStr,
           time: timeStr,
           source: "Google Chat 1:1 Bot (Interactive)"
         };
@@ -262,7 +265,8 @@ export async function POST(req: NextRequest) {
     if (existingDraft && (parsed.isOnlyHours || parsed.hasExplicitHours)) {
       const finalHours = parsed.hours > 0 ? parsed.hours : 7.5;
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = formatLocalTime(now);
+      const dateStr = formatLocalDate(now);
 
       const record: StandupRecord = {
         id: "std_" + Date.now(),
@@ -273,7 +277,7 @@ export async function POST(req: NextRequest) {
         hours: finalHours,
         project: existingDraft.project,
         blocker: existingDraft.blocker,
-        date: now.toISOString().slice(0, 10),
+        date: dateStr,
         time: timeStr,
         source: "Google Chat 1:1 Bot",
         rawText: cleanText
@@ -313,7 +317,8 @@ export async function POST(req: NextRequest) {
 
     // Case 3E: Full Standup with Hours or Special Status -> Log Immediately
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = formatLocalTime(now);
+    const dateStr = formatLocalDate(now);
     const record: StandupRecord = {
       id: "std_" + Date.now(),
       name: userName,
@@ -323,7 +328,7 @@ export async function POST(req: NextRequest) {
       hours: parsed.hours,
       project: parsed.project,
       blocker: parsed.blocker,
-      date: now.toISOString().slice(0, 10),
+      date: dateStr,
       time: timeStr,
       source: "Google Chat 1:1 Bot",
       rawText: cleanText

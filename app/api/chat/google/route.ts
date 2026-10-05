@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     event.commonEventObject || event.chat || event.authorizationEventObject || !event.type
   );
 
-  // 2. Extract User Identity
+  // 2. Extract User & Space Identity
   const userEmail =
     event.chat?.user?.email ??
     event.user?.email ??
@@ -78,6 +78,28 @@ export async function POST(req: NextRequest) {
     event.chat?.messagePayload?.message?.sender?.displayName ??
     'Team Member';
   const firstName = userName.split(' ')[0];
+
+  const spaceName =
+    event.space?.name ??
+    event.chat?.space?.name ??
+    event.message?.space?.name ??
+    event.chat?.messagePayload?.message?.space?.name ??
+    '';
+
+  // Automatically register 1:1 chat space for this employee
+  if (userEmail && spaceName) {
+    try {
+      db.registerEmployeeSpace(userEmail, spaceName, userName);
+      const settings = db.getSettings();
+      if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
+        const regUrl = settings.appsScriptUrl.includes('?')
+          ? `${settings.appsScriptUrl}&action=register_dm&email=${encodeURIComponent(userEmail)}&space=${encodeURIComponent(spaceName)}`
+          : `${settings.appsScriptUrl}?action=register_dm&email=${encodeURIComponent(userEmail)}&space=${encodeURIComponent(spaceName)}`;
+        fetch(regUrl).catch(() => {});
+      }
+    } catch (e) {}
+  }
+
 
   try {
     // -------------------------------------------------------------

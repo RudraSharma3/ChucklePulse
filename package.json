@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Humorous Daily Standup Bot & Executive Work Logging Suite",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
+    "start": "node local-server.js",
+    "dev": "node local-server.js",
     "slack-bot": "node bot-integrations/slack-standup-bot.js",
     "discord-bot": "node bot-integrations/discord-standup-bot.js"
   },

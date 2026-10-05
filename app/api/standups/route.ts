@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { parseStandupMessage } from "@/lib/parser";
 import { StandupRecord } from "@/lib/types";
+import { formatLocalTime, formatLocalDate } from "@/lib/googleChatHelper";
 
 export async function GET(req: NextRequest) {
   const list = db.getStandups();
@@ -24,8 +25,8 @@ export async function POST(req: NextRequest) {
       hours: body.hours ? parseFloat(body.hours) : parsed.hours,
       project: body.project || parsed.project,
       blocker: body.blocker || parsed.blocker,
-      date: now.toISOString().slice(0, 10),
-      time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      date: formatLocalDate(now),
+      time: formatLocalTime(now),
       source: body.source || "Dashboard Manual"
     };
 

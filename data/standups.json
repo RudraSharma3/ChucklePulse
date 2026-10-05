@@ -1,17 +1,1 @@
-[
-  {
-    "id": "std_1791187110817",
-    "employeeId": "emp_1790846454029",
-    "name": "Rudra Sharma",
-    "email": "rudra@bytepx.com",
-    "dept": "IT",
-    "tasks": "Working on Auth System and JWT login (),",
-    "hours": 6,
-    "project": "Auth & Security",
-    "blocker": "None",
-    "date": "2026-10-05",
-    "time": "01:28 PM",
-    "source": "Google Chat 1:1 Bot",
-    "rawText": "Working on Auth System and JWT login (6h), blocker: none"
-  }
-]
+[]

@@ -26,7 +26,7 @@ export function parseStandupMessage(text: string): {
   const isOnlyHours = Boolean(onlyHoursMatch && parseFloat(onlyHoursMatch[1]) > 0 && parseFloat(onlyHoursMatch[1]) <= 24);
 
   // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave)
-  const isAwaitingTask = /didnt\s+get|didn't\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench/i.test(lower);
+  const isAwaitingTask = /^(?:i\s+)?(?:didnt\s+get|didn\'t\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench)$/i.test(lower);
   const isOnLeave = /on\s+leave|sick\s+leave|day\s+off|vacation|out\s+of\s+office|holiday|taking\s+leave/i.test(lower);
 
   if (isAwaitingTask) {
@@ -41,8 +41,8 @@ export function parseStandupMessage(text: string): {
     hasExplicitHours = true;
   }
 
-  // 2. Extract Explicit Hours (e.g. "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
-  const hoursMatch = clean.match(/(?:\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/i);
+  // 2. Extract Explicit Hours (e.g. "for next 5 hours", "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
+  const hoursMatch = clean.match(/(?:for\s+next\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/i);
   if (hoursMatch) {
     hours = parseFloat(hoursMatch[1]);
     hasExplicitHours = true;
@@ -51,7 +51,7 @@ export function parseStandupMessage(text: string): {
     hasExplicitHours = true;
   }
 
-  // 3. Extract Explicit Blocker (e.g. "blocker: waiting for PR", "blocked by client key", "no blocker")
+  // 3. Extract Explicit or Conversational Blocker / Status
   const blockerMatch = clean.match(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-]([^\.\n\r]+)/i);
   if (blockerMatch) {
     const rawBlocker = blockerMatch[1].trim();
@@ -60,23 +60,35 @@ export function parseStandupMessage(text: string): {
     } else {
       blocker = rawBlocker;
     }
+  } else if (/then\s+(?:i\s+)?(?:dont|don\'t|dont\s+have|dont\s+ave|do\s+not\s+have|have\s+no)\s+(?:any\s+)?(?:work|task)/i.test(lower)) {
+    blocker = "Awaiting task allocation after planned hours";
   }
 
-  // 4. Extract Explicit Project (e.g. "project: auth", "working on project xyz", "for client portal")
+  // 4. Extract Project Name with Precision
   if (!isAwaitingTask && !isOnLeave) {
-    const projectPrefixMatch = clean.match(/(?:project|initiative|feature|repo|on|for)[:\s-]([a-zA-Z0-9\s_&-]+?)(?:,|\.|\n|\(|\)|hours?|hrs?|blocker|$)/i);
-    if (projectPrefixMatch && projectPrefixMatch[1].trim().length >= 3 && projectPrefixMatch[1].trim().length <= 35) {
-      const candidate = projectPrefixMatch[1].trim();
-      if (!/^(today|yesterday|tomorrow|tasks|work|something|now|morning|afternoon|this|the|any)$/i.test(candidate)) {
+    // Explicit syntax: Project: Name, Repo: Name, Feature: Name
+    const explicitMatch = clean.match(/(?:project|initiative|feature|repo)[:\s-]([a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
+    // Conversational action syntax: "i am working on project x", "working on xyz"
+    const actionMatch = clean.match(/(?:(?:i\s+am|i\'m|im)\s+)?(?:working on|working in|focusing on|assigned to|developing|building|debugging|refactoring|testing)\s+(?:the\s+)?(project\s+[a-zA-Z0-9\s_&-]+?|[a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
+    const projectMatch = explicitMatch || actionMatch;
+
+    if (projectMatch && projectMatch[1].trim().length >= 1 && projectMatch[1].trim().length <= 35) {
+      let candidate = projectMatch[1].trim();
+      if (!/^(today|yesterday|tomorrow|tasks|work|something|now|morning|afternoon|this|the|any|next)$/i.test(candidate)) {
+        if (candidate.length <= 2 && !candidate.toLowerCase().includes('project')) {
+          candidate = 'Project ' + candidate.toUpperCase();
+        }
         project = capitalizeTitle(candidate);
       }
     }
   }
 
-  // 5. Fallback Keyword Project Categorization if not explicitly named
+  // 5. Fallback Keyword Project Categorization
   if (project === "General Tasks" && !isAwaitingTask && !isOnLeave) {
     if (lower.includes("auth") || lower.includes("login") || lower.includes("jwt") || lower.includes("security") || lower.includes("oauth")) {
       project = "Auth & Security";
+    } else if (lower.includes("erp") || lower.includes("crm") || lower.includes("automation")) {
+      project = "ERP & Automation";
     } else if (lower.includes("payment") || lower.includes("stripe") || lower.includes("razorpay") || lower.includes("billing") || lower.includes("invoice")) {
       project = "Payment & Billing";
     } else if (lower.includes("api") || lower.includes("backend") || lower.includes("database") || lower.includes("postgres") || lower.includes("graphql") || lower.includes("server")) {
@@ -94,16 +106,26 @@ export function parseStandupMessage(text: string): {
     }
   }
 
-  // 6. Clean task string thoroughly: remove hours, blocker strings, empty parentheses, leftover punctuation
+  // 6. Clean task string thoroughly without smashing words together
   let tasks = clean
-    .replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, '')
-    .replace(/(?:\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/gi, '')
-    .replace(/\(\s*\)/g, '') // remove empty parentheses
-    .replace(/^[,;:\s-]+|[,;:\s-]+$/g, '') // remove leading/trailing punctuation
+    .replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, ' ')
+    .replace(/(?:for\s+next\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h\b)(?:\s*\)?)/gi, ' ')
+    .replace(/\(\s*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[,;:\s-]+|[,;:\s-]+$/g, '')
     .trim();
 
-  // If tasks string became empty or only whitespace/punctuation
-  if (!tasks || tasks.length < 3) {
+  // Clean conversational remnants like "for next then"
+  tasks = tasks
+    .replace(/\bfor\s+next\s+then\b/gi, 'then')
+    .replace(/\bfor\s+then\b/gi, 'then')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Capitalize sentence start
+  if (tasks.length > 0) {
+    tasks = tasks.charAt(0).toUpperCase() + tasks.slice(1);
+  } else {
     tasks = clean;
   }
 

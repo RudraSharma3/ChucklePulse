@@ -3,68 +3,49 @@ import { parseStandupMessage } from "@/lib/parser";
 import { db } from "@/lib/db";
 import { StandupRecord } from "@/lib/types";
 
-const WORK_SAFE_GIFS = [
-  "https://raw.githubusercontent.com/ABSphreak/ABSphreak/master/gifs/Hi.gif",
-  "https://raw.githubusercontent.com/abhisheknaiidu/abhisheknaiidu/master/code.gif",
-  "https://raw.githubusercontent.com/MartinHeinz/MartinHeinz/master/wave.gif",
-  "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Robot.png",
-  "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Partying%20Face.png",
-  "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Smiling%20Face%20with%20Sunglasses.png",
-  "https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Star-Struck.png",
-  "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/25.gif",
-  "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/150.gif",
-  "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/6.gif"
-];
-
 const ROTATING_PROMPTS = [
-  "Good morning champion! ☕ Coffee level at 80%? What epic dragons are you slaying across your projects today?",
-  "Beep boop! 🛸 StandupBot on daily intelligence duty. What mysteries are you solving today before caffeine wears off?",
-  "Rise and grind! 🚀 If your daily tasks were a movie title, what would today be called? Drop your hours & mission!",
-  "Wakey wakey! 🥞 Today's masterplan check-in: What tickets are you tackling, how many hours, and did any wild bugs block you?",
-  "The game is afoot! 🕵️‍♂️ I detect high productivity in the air. What are your prime targets today and any sneaky blockers?",
-  "Code, coffee, conquer! ⚡ What is your main focus today and how many hours of genius are we pouring in?"
+  "Good morning champion! ☕ What epic tasks are you tackling across your projects today?",
+  "Beep boop! 🛸 StandupBot daily check-in. What are your prime targets today before caffeine wears off?",
+  "Rise and grind! 🚀 Drop your planned project, tasks, hours, and any blockers!",
+  "Wakey wakey! 🥞 What tickets are you tackling today, how many hours, and did any wild bugs block you?",
+  "The game is afoot! 🕵️‍♂️ What is your main focus today and how many hours of genius are we pouring in?"
 ];
 
 export async function POST(req: NextRequest) {
   try {
-    const event = await req.json();
-    console.log("📥 Incoming Google Chat Event:", event.type);
+    const event = await req.json().catch(() => ({}));
+    console.log("📥 Incoming Google Chat Event:", event.type || "MESSAGE");
 
+    // Extract sender information
     const user = event.user || (event.message && event.message.sender) || {};
     const text = (event.message && event.message.text) ? event.message.text.trim() : "";
     const senderName = user.displayName || "Team Member";
     const senderEmail = user.email ? user.email.toLowerCase() : "";
+    const firstName = senderName.split(" ")[0];
 
-    // If greeting, empty, or bot command: send the visual prompt card
-    if (!text || ["hi", "hello", "hey", "help", "/standup", "/sync"].includes(text.toLowerCase())) {
+    // Case 1: Greeting / Added to space / Help command
+    const isGreeting = !text || ["hi", "hello", "hey", "help", "/standup", "/sync", "standup"].includes(text.toLowerCase());
+    if (isGreeting || event.type === "ADDED_TO_SPACE") {
       const prompt = ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
-      const gif = WORK_SAFE_GIFS[Math.floor(Math.random() * WORK_SAFE_GIFS.length)];
-      const name = senderName.split(" ")[0];
+
+      const messageText = [
+        `⏰ *BytePx Daily Standup*`,
+        `Good morning *${firstName}*! 👋`,
+        ``,
+        `💡 *${prompt}*`,
+        ``,
+        `━━━━━━━━━━━━━━━━━━━━━━━━`,
+        `👉 *Reply to this chat with your update:*`,
+        `\`Project: <Project Name>, Tasks: <Your Tasks>, Hours: <e.g. 7.5h>, Blocker: <None or issue>\``,
+        `_Example: Working on Auth system & JWT refresh (6h), blocker: none_`
+      ].join("\n");
 
       return NextResponse.json({
-        text: `⏰ *BytePx Daily Standup*\nGood morning ${name}!\n\n*${prompt}*\n\n👉 _Reply directly with your project, planned tasks, hours, and any blockers!_`,
-        cardsV2: [{
-          cardId: "standup_prompt_" + Date.now(),
-          card: {
-            header: {
-              title: "⏰ BytePx Daily Standup",
-              subtitle: `Good morning ${name}! Time to share today's mission.`,
-              imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-              imageType: "CIRCLE"
-            },
-            sections: [{
-              widgets: [
-                { textParagraph: { text: `<b>${prompt}</b>` } },
-                { image: { imageUrl: gif, altText: "Morning Reaction GIF" } },
-                { textParagraph: { text: "<i>👉 Reply directly to this chat with your project, tasks, hours, and blockers!</i>" } }
-              ]
-            }]
-          }
-        }]
+        text: messageText
       });
     }
 
-    // Parse freeform text with intelligent NLP parser
+    // Case 2: Standup Check-in Submission
     const parsed = parseStandupMessage(text);
     const employees = db.getEmployees();
     const matched = employees.find(e => 
@@ -73,6 +54,7 @@ export async function POST(req: NextRequest) {
     );
 
     const now = new Date();
+    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     const record: StandupRecord = {
       id: "std_" + Date.now(),
       employeeId: matched ? matched.id : null,
@@ -84,42 +66,37 @@ export async function POST(req: NextRequest) {
       project: parsed.project,
       blocker: parsed.blocker,
       date: now.toISOString().slice(0, 10),
-      time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      time: timeStr,
       source: "Google Chat 1:1 Bot",
       rawText: text
     };
 
-    // Save to database
+    // Save check-in
     db.saveStandup(record);
 
-    const blockerBadge = record.blocker === "None" ? "🟢 *No Blockers*" : `⚠️ *Blocker:* ${record.blocker}`;
+    const blockerLine = record.blocker === "None"
+      ? "🟢 *Blockers:* None"
+      : `🚨 *Blocker Alert:* ${record.blocker}`;
+
+    const confirmationText = [
+      `✅ *Daily Standup Logged for ${record.name}!*`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `📁 *Project:* *${record.project}*`,
+      `📝 *Tasks:* ${record.tasks}`,
+      `⏱️ *Hours:* *${record.hours} hrs*`,
+      `${blockerLine}`,
+      `🕒 *Recorded At:* ${timeStr}`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `_Logged in StandupPulse Dashboard. Have a productive day! 🚀_`
+    ].join("\n");
 
     return NextResponse.json({
-      text: `✅ *Daily Standup Logged for ${record.name}!*\n\n📁 *Project:* ${record.project}\n📝 *Tasks:* ${record.tasks}\n⏱️ *Hours:* ${record.hours} hrs\n${blockerBadge}\n\n_Have a great and productive day! 🚀_`,
-      cardsV2: [{
-        cardId: "standup_confirmation_" + Date.now(),
-        card: {
-          header: {
-            title: `✅ Standup Logged: ${record.project}`,
-            subtitle: `Recorded for ${record.name.split(" ")[0]} at ${record.time}`,
-            imageUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-            imageType: "CIRCLE"
-          },
-          sections: [{
-            widgets: [
-              { textParagraph: { text: `📁 <b>Project:</b> <font color="#6366f1">${record.project}</font>` } },
-              { textParagraph: { text: `📝 <b>Tasks:</b> ${record.tasks}` } },
-              { textParagraph: { text: `⏱️ <b>Hours:</b> ${record.hours} hrs` } },
-              { textParagraph: { text: record.blocker === "None" ? "🟢 <b>No Blockers</b>" : `⚠️ <b>Blocker:</b> <font color="#ef4444">${record.blocker}</font>` } }
-            ]
-          }]
-        }
-      }]
+      text: confirmationText
     });
   } catch (err: any) {
     console.error("Error in chat-bot route:", err);
     return NextResponse.json({
-      text: "✅ Standup check-in received! Thanks!"
+      text: "✅ Standup check-in received and recorded! Have a great day!"
     });
   }
 }
@@ -128,6 +105,6 @@ export async function GET() {
   return NextResponse.json({
     status: "online",
     bot: "BytePx StandupPulse Bot",
-    protocol: "Google Chat CardsV2 Webhook"
+    protocol: "Google Chat HTTP Webhook"
   });
 }

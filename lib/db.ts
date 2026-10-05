@@ -82,6 +82,26 @@ export const db = {
     writeFile(STD_FILE, list);
     return list;
   },
+  registerEmployeeSpace: (email: string, spaceName: string, name?: string): Employee[] => {
+    if (!email || !spaceName) return db.getEmployees();
+    const list = db.getEmployees();
+    const idx = list.findIndex(e => e.email.toLowerCase() === email.toLowerCase());
+    if (idx >= 0) {
+      list[idx].webhookUrl = spaceName;
+      if (name && (!list[idx].name || list[idx].name === 'Team Member')) list[idx].name = name;
+    } else {
+      list.push({
+        id: 'emp_' + Date.now(),
+        name: name || email.split('@')[0],
+        email: email,
+        dept: 'Engineering',
+        role: 'Team Member',
+        webhookUrl: spaceName
+      });
+    }
+    db.saveEmployees(list);
+    return list;
+  },
   getSettings: (): CompanySettings => {
     return readFile<CompanySettings>(SET_FILE, 'settings.json', DEFAULT_SETTINGS);
   },
@@ -92,3 +112,4 @@ export const db = {
     return updated;
   }
 };
+

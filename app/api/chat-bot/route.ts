@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
       ].join("\n");
 
       return NextResponse.json({
+        actionResponse: {
+          type: "NEW_MESSAGE"
+        },
         text: messageText
       });
     }
@@ -91,11 +94,17 @@ export async function POST(req: NextRequest) {
     ].join("\n");
 
     return NextResponse.json({
+      actionResponse: {
+        type: "NEW_MESSAGE"
+      },
       text: confirmationText
     });
   } catch (err: any) {
     console.error("Error in chat-bot route:", err);
     return NextResponse.json({
+      actionResponse: {
+        type: "NEW_MESSAGE"
+      },
       text: "✅ Standup check-in received and recorded! Have a great day!"
     });
   }

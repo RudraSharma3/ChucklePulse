@@ -3,6 +3,8 @@ export interface ChatActionResponseOptions {
   isAddOn?: boolean; // true for Google Workspace Add-on HTTP endpoints
 }
 
+const BOT_ICON_URL = "https://ssl.gstatic.com/images/branding/product/1x/avatar_circle_blue_512dp.png";
+
 /**
  * Formats responses to strictly comply with Google Workspace Add-on (Z Mode) specifications.
  */
@@ -11,11 +13,11 @@ export function formatChatResponse(
   options: ChatActionResponseOptions = {}
 ) {
   const isCardAction = options.isCardAction ?? false;
-  const isAddOn = options.isAddOn ?? true;
+  const isAddOn = options.isAddOn ?? false;
   const { cardsV2, text } = payload;
 
   if (isAddOn) {
-    // Rule B: Mutual Exclusivity - Send ONLY cardsV2 OR text, never both at same level
+    // Google Workspace Add-on (Z Mode)
     const message = cardsV2 && cardsV2.length > 0
       ? { cardsV2 }
       : { text: text ?? (isCardAction ? 'Action completed.' : 'Message received.') };
@@ -29,11 +31,19 @@ export function formatChatResponse(
     };
   }
 
-  // Standard Google Chat API fallback
-  return {
-    actionResponse: { type: isCardAction ? 'UPDATE_MESSAGE' : 'NEW_MESSAGE' },
-    ...(cardsV2 && cardsV2.length > 0 ? { cardsV2 } : { text: text ?? '' }),
-  };
+  // Standard Google Chat App API
+  if (isCardAction) {
+    return {
+      actionResponse: { type: 'UPDATE_MESSAGE' },
+      ...(cardsV2 && cardsV2.length > 0 ? { cardsV2 } : { text: text ?? '' }),
+    };
+  }
+
+  if (cardsV2 && cardsV2.length > 0) {
+    return { cardsV2 };
+  }
+
+  return { text: text ?? '' };
 }
 
 /**
@@ -50,7 +60,9 @@ export function buildStandupPromptCard(params: {
         card: {
           header: {
             title: "⏰ BytePx Daily Standup",
-            subtitle: `Good morning ${params.userName}! Time to share today's mission.`
+            subtitle: `Good morning ${params.userName}! Time to share today's mission.`,
+            imageUrl: BOT_ICON_URL,
+            imageType: "CIRCLE"
           },
           sections: [
             {
@@ -89,7 +101,9 @@ export function buildHoursRequestCard(params: {
         card: {
           header: {
             title: "⏱️ Hours Required",
-            subtitle: `Awesome update, ${params.userName}! How many hours for today?`
+            subtitle: `Awesome update, ${params.userName}! How many hours for today?`,
+            imageUrl: BOT_ICON_URL,
+            imageType: "CIRCLE"
           },
           sections: [
             {
@@ -190,7 +204,9 @@ export function buildStandupConfirmationCard(params: {
         card: {
           header: {
             title: `✅ Standup Logged: ${params.project}`,
-            subtitle: `Recorded for ${params.employeeName.split(' ')[0]} at ${params.time}`
+            subtitle: `Recorded for ${params.employeeName.split(' ')[0]} at ${params.time}`,
+            imageUrl: BOT_ICON_URL,
+            imageType: "CIRCLE"
           },
           sections: [
             {
@@ -240,6 +256,8 @@ export function buildInteractiveCard(params: {
           header: {
             title: params.title,
             subtitle: params.subtitle ?? 'Interactive Bot Card',
+            imageUrl: BOT_ICON_URL,
+            imageType: "CIRCLE"
           },
           sections: params.items.map((item) => ({
             header: item.title,
@@ -295,6 +313,8 @@ export function buildSuccessCard(message: string) {
         card: {
           header: {
             title: '✅ Update Received',
+            imageUrl: BOT_ICON_URL,
+            imageType: "CIRCLE"
           },
           sections: [
             {

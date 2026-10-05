@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0b0f19;
-  --foreground: #f8fafc;
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --card-bg: rgba(255, 255, 255, 0.95);
+    --card-border: rgba(226, 232, 240, 0.8);
+    --panel-bg: rgba(255, 255, 255, 0.85);
+    --panel-border: rgba(226, 232, 240, 0.9);
+  }
+
+  .dark {
+    --background: #090d16;
+    --foreground: #f8fafc;
+    --card-bg: rgba(17, 24, 39, 0.6);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --panel-bg: rgba(15, 23, 42, 0.75);
+    --panel-border: rgba(255, 255, 255, 0.08);
+  }
 }
 
 body {
@@ -10,26 +25,7 @@ body {
   background: var(--background);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
-}
-
-/* Glassmorphism utility classes */
-.glass-panel {
-  background: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-card {
-  background: rgba(31, 41, 55, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.glass-card:hover {
-  background: rgba(31, 41, 55, 0.75);
-  border-color: rgba(99, 102, 241, 0.3);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* Custom scrollbar */
@@ -38,12 +34,12 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #cbd5e1;
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
 }

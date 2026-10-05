@@ -185,8 +185,8 @@ function fetchWithRedirects(targetUrl, maxRedirects = 5) {
   });
 }
 
-const server = http.createServer((req, res) => {
-  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+function requestHandler(req, res) {
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
   const method = req.method;
 
@@ -199,6 +199,7 @@ const server = http.createServer((req, res) => {
     res.end();
     return;
   }
+
 
   // 0. POST /api/chat-bot (Direct Google Chat Webhook Handler)
   if (pathname === '/api/chat-bot' && method === 'POST') {
@@ -600,7 +601,9 @@ const server = http.createServer((req, res) => {
       res.end(content, 'utf-8');
     }
   });
-});
+}
+
+const server = http.createServer(requestHandler);
 
 if (require.main === module) {
   server.listen(PORT, () => {
@@ -611,5 +614,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = server;
+module.exports = requestHandler;
+
 

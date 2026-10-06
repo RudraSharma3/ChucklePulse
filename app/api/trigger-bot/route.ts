@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export async function POST(req: NextRequest) {
+async function handleTrigger(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     let action = searchParams.get("action") || "trigger";
     
     try {
-      const body = await req.json();
-      if (body && body.action) {
-        action = body.action;
+      if (req.method === "POST") {
+        const body = await req.json();
+        if (body && body.action) {
+          action = body.action;
+        }
       }
     } catch (e) {}
 
@@ -47,5 +49,13 @@ export async function POST(req: NextRequest) {
       error: err.message
     });
   }
+}
+
+export async function GET(req: NextRequest) {
+  return handleTrigger(req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleTrigger(req);
 }
 

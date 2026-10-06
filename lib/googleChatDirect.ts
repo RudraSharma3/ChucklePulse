@@ -269,10 +269,17 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
   for (const emp of eligibleEmployees) {
     let spaceName = emp.webhookUrl;
 
-    // If spaceName not yet saved for employee, auto-discover or create 1:1 DM space
+    // Sanity check: Ensure Rudra's space is not accidentally assigned to other employees
+    if (spaceName && emp.email.toLowerCase() !== 'rudra@bytepx.com' && spaceName === 'spaces/iJ9VmqAAAAE') {
+      spaceName = undefined;
+      emp.webhookUrl = '';
+      dbUpdated = true;
+    }
+
+    // If spaceName not yet saved for employee, auto-discover 1:1 DM space
     if (!spaceName || !spaceName.startsWith('spaces/')) {
       const discoveredSpace = await findOrCreateDmSpace(emp.email, token);
-      if (discoveredSpace) {
+      if (discoveredSpace && discoveredSpace !== 'spaces/iJ9VmqAAAAE') {
         spaceName = discoveredSpace;
         emp.webhookUrl = discoveredSpace;
         dbUpdated = true;
@@ -280,7 +287,7 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     }
 
     if (!spaceName) {
-      errors.push(`${emp.name} (${emp.email}): Could not locate 1:1 DM space in Google Chat API`);
+      errors.push(`${emp.name} (${emp.email}): 1:1 DM space pending (employee has not opened chat with Bot yet)`);
       continue;
     }
 

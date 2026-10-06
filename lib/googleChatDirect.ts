@@ -166,7 +166,9 @@ export async function findOrCreateDmSpace(email: string, token: string): Promise
     });
     if (findRes.ok) {
       const data = await findRes.json();
-      if (data.name) return data.name;
+      if (data.name && (cleanEmail === 'rudra@bytepx.com' || data.name !== 'spaces/iJ9VmqAAAAE')) {
+        return data.name;
+      }
     }
   } catch (e) {}
 
@@ -194,34 +196,8 @@ export async function findOrCreateDmSpace(email: string, token: string): Promise
     });
     if (setupRes.ok) {
       const data = await setupRes.json();
-      if (data.name) return data.name;
-    }
-  } catch (e) {}
-
-  // 3. Fallback: Scan all active spaces where bot is added
-  try {
-    const listRes = await fetch("https://chat.googleapis.com/v1/spaces", {
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    if (listRes.ok) {
-      const data = await listRes.json();
-      const spaces = data.spaces || [];
-      for (const sp of spaces) {
-        if (sp.name) {
-          try {
-            const memRes = await fetch(`https://chat.googleapis.com/v1/${sp.name}/members`, {
-              headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (memRes.ok) {
-              const memData = await memRes.json();
-              const memberships = memData.memberships || [];
-              for (const m of memberships) {
-                if (m.member?.email?.toLowerCase() === cleanEmail || m.member?.name?.toLowerCase().includes(cleanEmail.split('@')[0])) {
-                  return sp.name;
-                }
-              }
-            }
-          } catch (memErr) {}
+      if (data.name && (cleanEmail === 'rudra@bytepx.com' || data.name !== 'spaces/iJ9VmqAAAAE')) {
+        return data.name;
       }
     }
   } catch (e) {}

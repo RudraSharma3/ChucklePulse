@@ -222,13 +222,6 @@ export async function findOrCreateDmSpace(email: string, token: string): Promise
               }
             }
           } catch (memErr) {}
-        }
-      }
-      // If direct message space exists in list
-      for (const sp of spaces) {
-        if (sp.spaceType === "DIRECT_MESSAGE" && sp.name) {
-          return sp.name;
-        }
       }
     }
   } catch (e) {}

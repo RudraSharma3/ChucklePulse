@@ -432,7 +432,7 @@ export default function StandupDashboard() {
               className="px-4 py-2 text-xs md:text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {triggering ? "Pinging..." : "Send Standup to Team"}
+              {triggering ? "Sending..." : "Send Bot"}
             </button>
           </div>
         </header>

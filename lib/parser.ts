@@ -18,7 +18,7 @@ export function parseStandupMessage(text: string): {
 
   let hours = 0;
   let hasExplicitHours = false;
-  let project = "General Tasks";
+  let project = "";
   let blocker = "None";
 
   // Check if message is ONLY hours (e.g., "7.5", "7.5h", "8 hours", "6.5 hrs", "5h", "5 hoyrs")
@@ -84,7 +84,7 @@ export function parseStandupMessage(text: string): {
   }
 
   // 5. Fallback Keyword Project Categorization
-  if (project === "General Tasks" && !isAwaitingTask && !isOnLeave) {
+  if (!project && !isAwaitingTask && !isOnLeave) {
     if (lower.includes("auth") || lower.includes("login") || lower.includes("jwt") || lower.includes("security") || lower.includes("oauth")) {
       project = "Auth & Security";
     } else if (lower.includes("erp") || lower.includes("crm") || lower.includes("automation")) {

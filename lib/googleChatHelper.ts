@@ -207,14 +207,85 @@ export function buildHoursRequestCard(params: {
  */
 export function buildRemainingHoursCard(params: {
   userName: string;
-  project: string;
-  tasks: string;
+  project?: string;
+  tasks?: string;
   loggedHours: number;
   remainingHours: number;
 }) {
   const endpointUrl = getBotEndpointUrl();
   const logged = params.loggedHours;
   const rem = params.remainingHours;
+
+  const hasSpecificProject = Boolean(
+    params.project &&
+    params.project.trim() !== '' &&
+    params.project.toLowerCase() !== 'general tasks' &&
+    params.project.toLowerCase() !== 'general'
+  );
+
+  const cleanProject = hasSpecificProject ? params.project!.trim() : '';
+  const cleanTasks = (params.tasks && params.tasks.toLowerCase() !== 'general tasks' && params.tasks.toLowerCase() !== 'general') ? params.tasks.trim() : '';
+
+  const headerSubtitle = cleanProject
+    ? `Logged ${logged} hrs on ${cleanProject}`
+    : `${logged} hours logged so far`;
+
+  const loggedText = cleanProject
+    ? `📝 <b>Logged so far:</b> ${logged} hrs on <b>${cleanProject}</b>${cleanTasks && cleanTasks !== cleanProject ? ` (${cleanTasks})` : ''}`
+    : `📝 <b>Logged so far:</b> ${logged} hrs${cleanTasks ? ` (${cleanTasks})` : ''}`;
+
+  const buttons: any[] = [];
+
+  // Only include "Continue on Project" button if a real project was actually specified by employee!
+  if (hasSpecificProject) {
+    buttons.push({
+      text: `+${rem} hrs on ${cleanProject}`,
+      onClick: {
+        action: {
+          function: endpointUrl,
+          parameters: [
+            { key: "actionName", value: "submitRemaining" },
+            { key: "type", value: "same_project" },
+            { key: "hours", value: String(rem) }
+          ]
+        }
+      }
+    });
+  }
+
+  // Awaiting Tasks button
+  buttons.push({
+    text: `+${rem} hrs Awaiting Tasks`,
+    onClick: {
+      action: {
+        function: endpointUrl,
+        parameters: [
+          { key: "actionName", value: "submitRemaining" },
+          { key: "type", value: "awaiting" },
+          { key: "hours", value: String(rem) }
+        ]
+      }
+    }
+  });
+
+  // Half-Day Leave button
+  buttons.push({
+    text: `Half-Day Leave (${logged}h)`,
+    onClick: {
+      action: {
+        function: endpointUrl,
+        parameters: [
+          { key: "actionName", value: "submitRemaining" },
+          { key: "type", value: "half_day" },
+          { key: "hours", value: String(rem) }
+        ]
+      }
+    }
+  });
+
+  const promptMessage = hasSpecificProject
+    ? `💬 <i>Reply directly in chat with your remaining project & tasks (e.g. "3h on Project Y" or "3h on testing") or tap an option above.</i>`
+    : `💬 <b>Please reply directly in chat with the project and tasks you are working on for the rest ${rem} hours</b> (e.g. "5h on Project X and 3h on testing").`;
 
   return {
     cardsV2: [
@@ -223,7 +294,7 @@ export function buildRemainingHoursCard(params: {
         card: {
           header: {
             title: `⏰ Daily Capacity Check (${logged} / 8.0 hrs)`,
-            subtitle: `Logged ${logged} hrs on ${params.project}`,
+            subtitle: headerSubtitle,
             imageUrl: BOT_ICON_URL,
             imageType: "CIRCLE"
           },
@@ -232,7 +303,7 @@ export function buildRemainingHoursCard(params: {
               widgets: [
                 {
                   textParagraph: {
-                    text: `📝 <b>Logged so far:</b> ${logged} hrs on <b>${params.project}</b>`
+                    text: loggedText
                   }
                 },
                 {
@@ -242,52 +313,12 @@ export function buildRemainingHoursCard(params: {
                 },
                 {
                   buttonList: {
-                    buttons: [
-                      {
-                        text: `+${rem} hrs on ${params.project}`,
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitRemaining" },
-                              { key: "type", value: "same_project" },
-                              { key: "hours", value: String(rem) }
-                            ]
-                          }
-                        }
-                      },
-                      {
-                        text: `+${rem} hrs Awaiting Tasks`,
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitRemaining" },
-                              { key: "type", value: "awaiting" },
-                              { key: "hours", value: String(rem) }
-                            ]
-                          }
-                        }
-                      },
-                      {
-                        text: `Half-Day Leave (${logged}h)`,
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitRemaining" },
-                              { key: "type", value: "half_day" },
-                              { key: "hours", value: String(rem) }
-                            ]
-                          }
-                        }
-                      }
-                    ]
+                    buttons: buttons
                   }
                 },
                 {
                   textParagraph: {
-                    text: `💬 <i>Tap an option above or reply directly in chat (e.g. "working on QA for ${rem}h" or "remaining ${rem}h on project y").</i>`
+                    text: promptMessage
                   }
                 }
               ]

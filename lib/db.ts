@@ -19,7 +19,8 @@ const SET_FILE = path.join(DATA_DIR, 'settings.json');
 
 const DEFAULT_EMPLOYEES: Employee[] = [
   { id: 'emp_1', name: 'Tanmay Jain', email: 'tanmay.jain@bytepx.com', dept: 'Engineering', role: 'DE Intern' },
-  { id: 'emp_2', name: 'Rudra Sharma', email: 'rudra@bytepx.com', dept: 'AI / ML', role: 'Associate ML Engineer' }
+  { id: 'emp_2', name: 'Rudra Sharma', email: 'rudra@bytepx.com', dept: 'AI / ML', role: 'Associate ML Engineer' },
+  { id: 'emp_3', name: 'Pavana', email: 'pavana@bytepx.com', dept: 'Delivery', role: 'Delivery Head' }
 ];
 
 const DEFAULT_SETTINGS: CompanySettings = {

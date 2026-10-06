@@ -65,14 +65,54 @@ function writeFile<T>(filePath: string, data: T): boolean {
   }
 }
 
+function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; changed: boolean } {
+  const seenSpaces = new Map<string, string>(); // spaceName -> email
+  let changed = false;
+
+  const sanitized = employees.map(emp => {
+    let cleanWebhook = emp.webhookUrl ? emp.webhookUrl.trim() : '';
+    const cleanEmail = (emp.email || '').trim().toLowerCase();
+
+    // 1. Rudra's space (spaces/iJ9VmqAAAAE) is strictly for rudra@bytepx.com
+    if (cleanWebhook === 'spaces/iJ9VmqAAAAE' && cleanEmail !== 'rudra@bytepx.com') {
+      cleanWebhook = '';
+      changed = true;
+    }
+
+    // 2. Ensure each space is uniquely assigned to only one employee (no cross-delivery)
+    if (cleanWebhook && cleanWebhook.startsWith('spaces/')) {
+      if (seenSpaces.has(cleanWebhook) && seenSpaces.get(cleanWebhook) !== cleanEmail) {
+        cleanWebhook = '';
+        changed = true;
+      } else {
+        seenSpaces.set(cleanWebhook, cleanEmail);
+      }
+    }
+
+    if (cleanWebhook !== (emp.webhookUrl || '')) {
+      changed = true;
+      return { ...emp, webhookUrl: cleanWebhook };
+    }
+    return emp;
+  });
+
+  return { employees: sanitized, changed };
+}
+
 export const db = {
   getEmployees: (): Employee[] => {
-    return readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
+    const raw = readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
+    const { employees, changed } = sanitizeEmployees(raw);
+    if (changed) {
+      writeFile(EMP_FILE, employees);
+    }
+    return employees;
   },
   saveEmployees: (employees: Employee[]): boolean => {
-    const success = writeFile(EMP_FILE, employees);
+    const { employees: sanitized } = sanitizeEmployees(employees);
+    const success = writeFile(EMP_FILE, sanitized);
     if (success) {
-      db.syncEmployeesToCloud(employees);
+      db.syncEmployeesToCloud(sanitized);
     }
     return success;
   },
@@ -117,24 +157,36 @@ export const db = {
   },
   registerEmployeeSpace: (email: string, spaceName: string, name?: string): Employee[] => {
     if (!email || !spaceName) return db.getEmployees();
-    const list = db.getEmployees();
-    const idx = list.findIndex(e => e.email.toLowerCase() === email.toLowerCase());
-    let targetEmp: Employee;
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanSpace = spaceName.trim();
+    let list = db.getEmployees();
+
+    // Clear this spaceName from all other employees to guarantee 1:1 privacy
+    list = list.map(e => {
+      if (e.email.toLowerCase() !== cleanEmail && e.webhookUrl === cleanSpace) {
+        return { ...e, webhookUrl: '' };
+      }
+      return e;
+    });
+
+    const idx = list.findIndex(e => e.email.toLowerCase() === cleanEmail);
     if (idx >= 0) {
-      list[idx].webhookUrl = spaceName;
-      if (name && (!list[idx].name || list[idx].name === 'Team Member')) list[idx].name = name;
-      targetEmp = list[idx];
+      list[idx] = {
+        ...list[idx],
+        webhookUrl: cleanSpace,
+        name: (name && (!list[idx].name || list[idx].name === 'Team Member')) ? name : list[idx].name
+      };
     } else {
-      targetEmp = {
+      list.push({
         id: 'emp_' + Date.now(),
         name: name || email.split('@')[0],
-        email: email,
+        email: cleanEmail,
         dept: 'Engineering',
         role: 'Team Member',
-        webhookUrl: spaceName
-      };
-      list.push(targetEmp);
+        webhookUrl: cleanSpace
+      });
     }
+
     db.saveEmployees(list);
     return list;
   },

@@ -102,9 +102,28 @@ function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; chan
 
 export const db = {
   getEmployees: (): Employee[] => {
-    const raw = readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
-    const { employees, changed } = sanitizeEmployees(raw);
-    if (changed) {
+    let current = readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
+    try {
+      const seedPath = path.join(SEED_DIR, 'employees.json');
+      if (fs.existsSync(seedPath)) {
+        const seedData: Employee[] = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+        const empMap = new Map<string, Employee>();
+        current.forEach(e => empMap.set(e.email.toLowerCase(), e));
+        let added = false;
+        seedData.forEach(s => {
+          if (s && s.email && !empMap.has(s.email.toLowerCase())) {
+            empMap.set(s.email.toLowerCase(), s);
+            added = true;
+          }
+        });
+        if (added) {
+          current = Array.from(empMap.values());
+        }
+      }
+    } catch (e) {}
+
+    const { employees, changed } = sanitizeEmployees(current);
+    if (changed || current.length !== employees.length) {
       writeFile(EMP_FILE, employees);
     }
     return employees;

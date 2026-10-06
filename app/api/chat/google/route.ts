@@ -73,13 +73,6 @@ export async function POST(req: NextRequest) {
   );
 
   // 2. Extract User & Space Identity
-  const userEmail =
-    event.chat?.user?.email ??
-    event.user?.email ??
-    event.commonEventObject?.userEmail ??
-    event.chat?.messagePayload?.message?.sender?.email ??
-    event.message?.sender?.email ??
-    '';
   const userName =
     event.chat?.user?.displayName ??
     event.user?.displayName ??
@@ -87,6 +80,20 @@ export async function POST(req: NextRequest) {
     event.chat?.messagePayload?.message?.sender?.displayName ??
     'Team Member';
   const firstName = userName.split(' ')[0];
+
+  const rawUserEmail =
+    event.chat?.user?.email ??
+    event.user?.email ??
+    event.commonEventObject?.userEmail ??
+    event.chat?.messagePayload?.message?.sender?.email ??
+    event.message?.sender?.email ??
+    '';
+
+  const userEmail = rawUserEmail || (
+    userName.toLowerCase().includes('rudra') ? 'rudra@bytepx.com' :
+    userName.toLowerCase().includes('tanmay') ? 'tanmay.jain@bytepx.com' :
+    ''
+  );
 
   const userKey =
     userEmail ||
@@ -104,16 +111,22 @@ export async function POST(req: NextRequest) {
     event.chat?.messagePayload?.message?.space?.name ??
     '';
 
-  // Automatically register 1:1 chat space for this employee
-  if (userEmail && spaceName) {
+  // Automatically register 1:1 chat space for this employee synchronously
+  if (spaceName) {
     try {
-      db.registerEmployeeSpace(userEmail, spaceName, userName);
+      const regEmail = userEmail || `${userName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@bytepx.com`;
+      db.registerEmployeeSpace(regEmail, spaceName, userName);
       const settings = db.getSettings();
       if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
         const regUrl = settings.appsScriptUrl.includes('?')
-          ? `${settings.appsScriptUrl}&action=register_dm&email=${encodeURIComponent(userEmail)}&space=${encodeURIComponent(spaceName)}`
-          : `${settings.appsScriptUrl}?action=register_dm&email=${encodeURIComponent(userEmail)}&space=${encodeURIComponent(spaceName)}`;
-        fetch(regUrl).catch(() => {});
+          ? `${settings.appsScriptUrl}&action=register_dm&email=${encodeURIComponent(regEmail)}&space=${encodeURIComponent(spaceName)}&name=${encodeURIComponent(userName)}`
+          : `${settings.appsScriptUrl}?action=register_dm&email=${encodeURIComponent(regEmail)}&space=${encodeURIComponent(spaceName)}&name=${encodeURIComponent(userName)}`;
+        
+        // Await with timeout so Vercel does not terminate lambda before fetch completes
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        await fetch(regUrl, { method: 'GET', signal: controller.signal }).catch(() => {});
+        clearTimeout(timeoutId);
       }
     } catch (e) {}
   }

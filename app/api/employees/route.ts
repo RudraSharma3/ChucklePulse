@@ -3,37 +3,7 @@ import { db } from "@/lib/db";
 import { Employee } from "@/lib/types";
 
 export async function GET() {
-  let employees = db.getEmployees();
-  
-  // If on Vercel or freshly deployed, try hydrating extra employees from Apps Script cloud storage
-  try {
-    const settings = db.getSettings();
-    if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
-      const url = settings.appsScriptUrl.includes('?')
-        ? `${settings.appsScriptUrl}&action=get_employees`
-        : `${settings.appsScriptUrl}?action=get_employees`;
-      const res = await fetch(url, { cache: 'no-store' });
-      if (res.ok) {
-        const cloudEmployees: Employee[] = await res.json();
-        if (Array.isArray(cloudEmployees) && cloudEmployees.length > 0) {
-          const empMap = new Map<string, Employee>();
-          employees.forEach(e => empMap.set(e.email.toLowerCase(), e));
-          cloudEmployees.forEach(e => {
-            if (e.email) {
-              const existing = empMap.get(e.email.toLowerCase());
-              empMap.set(e.email.toLowerCase(), { ...existing, ...e });
-            }
-          });
-          const merged = Array.from(empMap.values());
-          if (merged.length !== employees.length) {
-            db.saveEmployees(merged);
-            employees = merged;
-          }
-        }
-      }
-    }
-  } catch (e) {}
-
+  const employees = db.getEmployees();
   return NextResponse.json(employees);
 }
 

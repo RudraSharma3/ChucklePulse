@@ -183,25 +183,28 @@ export async function POST(req: NextRequest) {
         const buttonType = paramsMap.type || 'same_project';
         const remHours = parseFloat(paramsMap.hours || '3.0') || 3.0;
         const primaryHrs = draft && draft.hours ? draft.hours : 5.0;
-        const primaryProj = draft ? draft.project : 'General Tasks';
-        const primaryTasks = draft ? draft.tasks : 'General tasks';
+        const primaryProj = (draft && draft.project && draft.project !== 'General Tasks') ? draft.project : '';
+        const primaryTasks = (draft && draft.tasks && draft.tasks !== 'General tasks') ? draft.tasks : '';
 
-        let finalProject = primaryProj;
+        let finalProject = primaryProj || 'Daily Tasks';
         let finalHours = 8.0;
-        let finalTasks = primaryTasks;
+        let finalTasks = primaryTasks || `${finalHours} hrs logged`;
         let finalBlocker = draft ? draft.blocker : 'None';
 
         if (buttonType === 'same_project') {
           finalHours = 8.0;
-          finalTasks = `${primaryTasks} (Full Day: 8.0 hrs)`;
+          finalTasks = primaryTasks ? `${primaryTasks} (Full Day: 8.0 hrs)` : `8.0 hrs on ${primaryProj || 'Daily Tasks'}`;
         } else if (buttonType === 'awaiting') {
           finalHours = 8.0;
-          finalProject = `${primaryProj} + Standby`;
-          finalTasks = `${primaryTasks} (${primaryHrs} hrs), Awaiting Tasks (${remHours} hrs)`;
+          finalProject = primaryProj ? `${primaryProj} + Standby` : 'Standby / Awaiting Tasks';
+          finalTasks = primaryTasks
+            ? `${primaryTasks} (${primaryHrs} hrs), Awaiting Tasks (${remHours} hrs)`
+            : `Awaiting Tasks (${remHours} hrs)`;
           finalBlocker = `Awaiting task allocation for ${remHours} hrs`;
         } else if (buttonType === 'half_day') {
           finalHours = primaryHrs;
-          finalTasks = `${primaryTasks} (Half-Day Leave)`;
+          finalProject = primaryProj || 'Half-Day Leave';
+          finalTasks = primaryTasks ? `${primaryTasks} (Half-Day Leave)` : 'Half-Day Leave';
           finalBlocker = 'Half-Day Leave';
         }
 
@@ -245,17 +248,17 @@ export async function POST(req: NextRequest) {
         if (selectedHours < 8.0) {
           const remaining = +(8.0 - selectedHours).toFixed(1);
           db.savePendingDraft(userKey, {
-            tasks: draft ? draft.tasks : "General tasks",
-            project: draft ? draft.project : "General Tasks",
-            blocker: draft ? draft.blocker : "None",
+            tasks: draft?.tasks || "",
+            project: draft?.project || "",
+            blocker: draft?.blocker || "None",
             hours: selectedHours,
             remainingHours: remaining
           });
 
           const capacityCard = buildRemainingHoursCard({
             userName: firstName,
-            project: draft ? draft.project : "General Tasks",
-            tasks: draft ? draft.tasks : "General tasks",
+            project: draft?.project || "",
+            tasks: draft?.tasks || "",
             loggedHours: selectedHours,
             remainingHours: remaining
           });
@@ -263,14 +266,17 @@ export async function POST(req: NextRequest) {
           return chatJson(formatChatResponse(capacityCard, { isCardAction: true }));
         }
 
+        const cleanProj = (draft && draft.project && draft.project !== 'General Tasks') ? draft.project : 'Daily Tasks';
+        const cleanTsk = (draft && draft.tasks && draft.tasks !== 'General tasks') ? draft.tasks : `${selectedHours} hrs logged`;
+
         const record: StandupRecord = {
           id: "std_" + Date.now(),
           name: userName,
           email: userEmail || "team@bytepx.com",
           dept: "Engineering",
-          tasks: draft ? draft.tasks : "General tasks",
+          tasks: cleanTsk,
           hours: selectedHours,
-          project: draft ? draft.project : "General Tasks",
+          project: cleanProj,
           blocker: draft ? draft.blocker : "None",
           date: dateStr,
           time: timeStr,
@@ -360,25 +366,39 @@ export async function POST(req: NextRequest) {
     // Case 3C: User had a pending draft with PARTIAL hours (e.g. 5.0h on Project X) and is now replying for the rest
     if (existingDraft && existingDraft.hours && existingDraft.hours > 0 && existingDraft.remainingHours && existingDraft.remainingHours > 0) {
       let finalHours = 8.0;
-      let finalTasks = existingDraft.tasks;
-      let finalProject = existingDraft.project;
-      let finalBlocker = existingDraft.blocker;
+      let finalTasks = existingDraft.tasks || "";
+      let finalProject = existingDraft.project || "";
+      let finalBlocker = existingDraft.blocker || "None";
 
       if (/half\s+day|day\s+off|leave|taking\s+leave/i.test(lowerText)) {
         finalHours = existingDraft.hours;
-        finalTasks = `${existingDraft.tasks} (Half-Day Leave)`;
+        finalTasks = finalTasks ? `${finalTasks} (Half-Day Leave)` : 'Half-Day Leave';
+        finalProject = finalProject || 'Half-Day Leave';
         finalBlocker = 'Half-Day Leave';
       } else if (/awaiting|waiting|no\s+task|didnt\s+get|bench|free|no\s+work/i.test(lowerText)) {
         finalHours = 8.0;
-        finalProject = `${existingDraft.project} + Standby`;
-        finalTasks = `${existingDraft.tasks} (${existingDraft.hours} hrs), Awaiting Tasks (${existingDraft.remainingHours} hrs)`;
+        finalProject = finalProject ? `${finalProject} + Standby` : 'Standby / Awaiting Tasks';
+        finalTasks = finalTasks
+          ? `${finalTasks} (${existingDraft.hours} hrs), Awaiting Tasks (${existingDraft.remainingHours} hrs)`
+          : `Awaiting Tasks (${existingDraft.remainingHours} hrs)`;
         finalBlocker = `Awaiting task allocation for ${existingDraft.remainingHours} hrs`;
       } else {
         const secondHours = parsed.hours > 0 ? parsed.hours : existingDraft.remainingHours;
-        const secondProject = parsed.project !== 'General Tasks' ? parsed.project : existingDraft.project;
+        const secondProject = (parsed.project && parsed.project !== 'General Tasks') ? parsed.project : "";
         finalHours = +(existingDraft.hours + secondHours).toFixed(1);
-        finalProject = secondProject === existingDraft.project ? existingDraft.project : `${existingDraft.project} & ${secondProject}`;
-        finalTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${parsed.tasks} (${secondHours}h)`;
+        
+        if (existingDraft.project && secondProject && existingDraft.project !== secondProject) {
+          finalProject = `${existingDraft.project} & ${secondProject}`;
+        } else {
+          finalProject = secondProject || existingDraft.project || (parsed.tasks ? parsed.tasks.split(/[,;\n]/)[0].slice(0, 30) : 'Daily Tasks');
+        }
+
+        if (existingDraft.tasks && parsed.tasks) {
+          finalTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${parsed.tasks} (${secondHours}h)`;
+        } else {
+          finalTasks = parsed.tasks || existingDraft.tasks || `${finalHours} hours logged`;
+        }
+
         finalBlocker = parsed.blocker !== 'None' ? parsed.blocker : existingDraft.blocker;
       }
 
@@ -510,6 +530,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Case 3G: Full Standup with >= 8 Hours or Special Status -> Log Immediately
+    const finalProjName = parsed.project || (parsed.tasks ? parsed.tasks.split(/[,;\n]/)[0].slice(0, 35) : 'Daily Tasks');
     const record: StandupRecord = {
       id: "std_" + Date.now(),
       name: userName,
@@ -517,7 +538,7 @@ export async function POST(req: NextRequest) {
       dept: "Engineering",
       tasks: parsed.tasks,
       hours: parsed.hours,
-      project: parsed.project,
+      project: finalProjName,
       blocker: parsed.blocker,
       date: dateStr,
       time: timeStr,

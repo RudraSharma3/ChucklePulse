@@ -152,6 +152,91 @@ export async function sendDirectMessageToSpace(spaceName: string, payload: any):
 }
 
 /**
+ * Finds or creates a 1:1 Direct Message Space with an employee via Google Chat API
+ */
+export async function findOrCreateDmSpace(email: string, token: string): Promise<string | null> {
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Try findDirectMessage by email
+  try {
+    const findUrl = `https://chat.googleapis.com/v1/spaces:findDirectMessage?name=users/${encodeURIComponent(cleanEmail)}`;
+    const findRes = await fetch(findUrl, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (findRes.ok) {
+      const data = await findRes.json();
+      if (data.name) return data.name;
+    }
+  } catch (e) {}
+
+  // 2. Try spaces:setup to initialize 1:1 bot DM
+  try {
+    const setupUrl = `https://chat.googleapis.com/v1/spaces:setup`;
+    const setupRes = await fetch(setupUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        space: {
+          spaceType: "DIRECT_MESSAGE",
+          singleUserBotDm: true
+        },
+        membership: {
+          member: {
+            name: `users/${cleanEmail}`,
+            type: "HUMAN"
+          }
+        }
+      })
+    });
+    if (setupRes.ok) {
+      const data = await setupRes.json();
+      if (data.name) return data.name;
+    }
+  } catch (e) {}
+
+  // 3. Fallback: Scan all active spaces where bot is added
+  try {
+    const listRes = await fetch("https://chat.googleapis.com/v1/spaces", {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const spaces = data.spaces || [];
+      for (const sp of spaces) {
+        if (sp.name) {
+          try {
+            const memRes = await fetch(`https://chat.googleapis.com/v1/${sp.name}/members`, {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (memRes.ok) {
+              const memData = await memRes.json();
+              const memberships = memData.memberships || [];
+              for (const m of memberships) {
+                if (m.member?.email?.toLowerCase() === cleanEmail || m.member?.name?.toLowerCase().includes(cleanEmail.split('@')[0])) {
+                  return sp.name;
+                }
+              }
+            }
+          } catch (memErr) {}
+        }
+      }
+      // If direct message space exists in list
+      for (const sp of spaces) {
+        if (sp.spaceType === "DIRECT_MESSAGE" && sp.name) {
+          return sp.name;
+        }
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+/**
  * Broadcasts the standup prompt (or nudge) directly to all employees in 1:1 DMs via Service Account
  */
 export async function broadcastDirectStandup(isNudge: boolean = false) {
@@ -164,16 +249,48 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     standups.filter(s => s.date === today).map(s => s.email.toLowerCase())
   );
 
-  const targetEmployees = employees.filter(emp => {
-    if (!emp.webhookUrl || !emp.webhookUrl.startsWith('spaces/')) return false;
+  const eligibleEmployees = employees.filter(emp => {
     if (isNudge && completedEmails.has(emp.email.toLowerCase())) return false;
-    return true;
+    return Boolean(emp.email);
   });
 
   let sent = 0;
   const errors: string[] = [];
+  const successfulTargets: Array<{ name: string; email: string; space: string }> = [];
 
-  for (const emp of targetEmployees) {
+  let token: string;
+  try {
+    token = await getGoogleChatAccessToken();
+  } catch (tokenErr: any) {
+    return {
+      success: false,
+      sent: 0,
+      totalTargetEmployees: eligibleEmployees.length,
+      targets: [],
+      errors: [`Google Auth Failed: ${tokenErr.message}`]
+    };
+  }
+
+  let dbUpdated = false;
+
+  for (const emp of eligibleEmployees) {
+    let spaceName = emp.webhookUrl;
+
+    // If spaceName not yet saved for employee, auto-discover or create 1:1 DM space
+    if (!spaceName || !spaceName.startsWith('spaces/')) {
+      const discoveredSpace = await findOrCreateDmSpace(emp.email, token);
+      if (discoveredSpace) {
+        spaceName = discoveredSpace;
+        emp.webhookUrl = discoveredSpace;
+        dbUpdated = true;
+      }
+    }
+
+    if (!spaceName) {
+      errors.push(`${emp.name} (${emp.email}): Could not locate 1:1 DM space in Google Chat API`);
+      continue;
+    }
+
     const firstName = emp.name.split(' ')[0] || "Champion";
     const promptText = isNudge
       ? "⏰ Friendly Standup Reminder! Just checking in—did you get a chance to log your tasks and hours for today?"
@@ -184,19 +301,24 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
       prompt: promptText
     });
 
-    const result = await sendDirectMessageToSpace(emp.webhookUrl!, card);
+    const result = await sendDirectMessageToSpace(spaceName, card);
     if (result.success) {
       sent++;
+      successfulTargets.push({ name: emp.name, email: emp.email, space: spaceName });
     } else {
       errors.push(`${emp.name} (${emp.email}): ${result.error}`);
     }
   }
 
+  if (dbUpdated) {
+    db.saveEmployees(employees);
+  }
+
   return {
-    success: true,
+    success: sent > 0 || errors.length === 0,
     sent,
-    totalTargetEmployees: targetEmployees.length,
-    targets: targetEmployees.map(e => ({ name: e.name, email: e.email, space: e.webhookUrl })),
+    totalTargetEmployees: eligibleEmployees.length,
+    targets: successfulTargets,
     errors
   };
 }

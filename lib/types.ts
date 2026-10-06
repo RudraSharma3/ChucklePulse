@@ -35,6 +35,7 @@ export interface CompanySettings {
   maxNudges: number;
   googleChatWebhookUrl: string;
   appsScriptUrl: string;
+  googleServiceAccountKey?: string;
   botPrompt: string;
   gifTag: string;
   theme: 'dark' | 'light';

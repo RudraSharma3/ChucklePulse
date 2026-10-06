@@ -19,8 +19,23 @@ async function handleTrigger(req: NextRequest) {
     const settings = db.getSettings();
     let directSent = false;
     let directError: string | null = null;
+    let serviceAccountResult: any = null;
 
-    // 1. Direct Webhook Delivery (NO Apps Script needed if Google Chat Webhook URL is set)
+    // 1. Direct 1:1 DM Broadcast via Google Cloud Service Account (NO Apps Script needed!)
+    try {
+      const { getServiceAccountCredentials, broadcastDirectStandup } = await import("@/lib/googleChatDirect");
+      const creds = getServiceAccountCredentials();
+      if (creds) {
+        serviceAccountResult = await broadcastDirectStandup(action === "nudge");
+        if (serviceAccountResult.sent > 0) {
+          directSent = true;
+        }
+      }
+    } catch (saErr: any) {
+      directError = `Service Account DM: ${saErr.message}`;
+    }
+
+    // 2. Direct Webhook Delivery (if Google Chat Webhook URL is set)
     if (settings.googleChatWebhookUrl && settings.googleChatWebhookUrl.startsWith("http")) {
       try {
         const promptText = action === "nudge"
@@ -49,9 +64,9 @@ async function handleTrigger(req: NextRequest) {
       }
     }
 
-    // 2. Apps Script Delivery (if configured)
+    // 3. Apps Script Delivery (fallback if configured)
     let appsScriptData: any = null;
-    if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith("http")) {
+    if (!directSent && settings.appsScriptUrl && settings.appsScriptUrl.startsWith("http")) {
       try {
         const triggerUrl = settings.appsScriptUrl.includes("?") 
           ? `${settings.appsScriptUrl}&action=${action}` 
@@ -66,9 +81,10 @@ async function handleTrigger(req: NextRequest) {
       return NextResponse.json({
         success: true,
         message: action === "nudge"
-          ? "⏰ Follow-up standup reminder sent to Google Chat!"
-          : "🚀 Daily standup prompt dispatched to Google Chat!",
+          ? "⏰ Follow-up standup reminder sent directly to Google Chat DMs!"
+          : "🚀 Daily standup prompt dispatched directly to Google Chat 1:1 DMs!",
         directSent,
+        serviceAccount: serviceAccountResult,
         appsScript: appsScriptData
       });
     }
@@ -76,9 +92,10 @@ async function handleTrigger(req: NextRequest) {
     return NextResponse.json({
       success: true,
       message: directError 
-        ? `Dispatch completed with notice: ${directError}`
-        : "Standup prompt broadcast dispatched to configured endpoints.",
+        ? `Dispatch notice: ${directError}`
+        : "Standup prompt broadcast dispatched.",
       directSent,
+      serviceAccount: serviceAccountResult,
       appsScript: appsScriptData
     });
 

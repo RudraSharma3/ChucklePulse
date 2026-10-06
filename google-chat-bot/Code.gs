@@ -430,10 +430,26 @@ function sendDirectMessageToAllEmployees(isNudge) {
         });
       }
     }
-  } catch (e) {
-    console.warn("Could not fetch remote employee spaces:", e.message);
-  }
-
+  // 3. Also check local EMPLOYEE_RECORDS for any space mappings
+  try {
+    const rawLocalEmps = scriptProps["EMPLOYEE_RECORDS"] || "[]";
+    const localEmpList = JSON.parse(rawLocalEmps);
+    if (Array.isArray(localEmpList)) {
+      localEmpList.forEach(emp => {
+        if (emp.webhookUrl && !addedSpaces.has(emp.webhookUrl)) {
+          const email = (emp.email || "").toLowerCase();
+          if (!isNudge || !completedEmails.has(email)) {
+            targetSpaces.push({
+              key: "DM_" + email,
+              spaceName: emp.webhookUrl,
+              email: email
+            });
+            addedSpaces.add(emp.webhookUrl);
+          }
+        }
+      });
+    }
+  } catch (e) {}
 
   let sent = 0;
   const errors = [];
@@ -453,7 +469,7 @@ function sendDirectMessageToAllEmployees(isNudge) {
         sent++;
         console.log(`✅ Dispatched standup prompt to: ${item.spaceName} (${item.email})`);
       } else {
-        errors.push(`${item.spaceName}: ${resJson.error.message || 'API error'}`);
+        errors.push(`${item.spaceName} (${item.email}): ${resJson.error.message || 'API error'}`);
       }
     } catch (err) {
       console.warn("Failed to message space " + item.spaceName + ": " + err.message);
@@ -472,7 +488,8 @@ function sendDirectMessageToAllEmployees(isNudge) {
   return { 
     success: true, 
     sent: sent, 
-    totalPending: targetSpaces.length,
+    totalTargetSpaces: targetSpaces.length,
+    targets: targetSpaces.map(t => ({ email: t.email, space: t.spaceName })),
     errors: errors 
   };
 }

@@ -189,7 +189,17 @@ export const db = {
       return e;
     });
 
-    const idx = list.findIndex(e => e.email.toLowerCase() === cleanEmail);
+    const idx = list.findIndex(e => {
+      const eEmail = e.email.toLowerCase().trim();
+      if (eEmail === cleanEmail) return true;
+      const ePrefix = eEmail.split('@')[0];
+      const cPrefix = cleanEmail.split('@')[0];
+      if (ePrefix === cPrefix) return true;
+      if (ePrefix.split('.')[0] === cPrefix.split('.')[0] && ePrefix.split('.')[0].length > 3) return true;
+      if (name && e.name.toLowerCase().trim() === name.toLowerCase().trim()) return true;
+      return false;
+    });
+
     if (idx >= 0) {
       list[idx] = {
         ...list[idx],

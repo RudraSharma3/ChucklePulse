@@ -78,6 +78,7 @@ export default function StandupDashboard() {
   });
 
   const [currentTime, setCurrentTime] = useState("");
+  const [clearingDb, setClearingDb] = useState(false);
 
   // Theme Initializer: Default to light mode
   useEffect(() => {
@@ -88,6 +89,27 @@ export default function StandupDashboard() {
     } else {
       document.documentElement.classList.remove("dark");
     }
+  }, []);
+
+  // Instant LocalStorage Rehydration: Load cached data immediately on mount/refresh
+  useEffect(() => {
+    try {
+      const cachedStdRaw = localStorage.getItem("bytepx_standups_cache");
+      if (cachedStdRaw) {
+        const parsed: StandupRecord[] = JSON.parse(cachedStdRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setStandups(parsed);
+          setLoading(false);
+        }
+      }
+      const cachedEmpRaw = localStorage.getItem("bytepx_employees_cache");
+      if (cachedEmpRaw) {
+        const parsed: Employee[] = JSON.parse(cachedEmpRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setEmployees(parsed);
+        }
+      }
+    } catch (e) {}
   }, []);
 
   const toggleTheme = () => {
@@ -119,25 +141,35 @@ export default function StandupDashboard() {
         fetch("/api/settings").then(r => r.json())
       ]);
 
-      let fetchedStandups = Array.isArray(resStd) ? resStd : [];
-      let fetchedEmployees = Array.isArray(resEmp) ? resEmp : [];
+      let fetchedStandups: StandupRecord[] = Array.isArray(resStd) ? resStd : [];
+      let fetchedEmployees: Employee[] = Array.isArray(resEmp) ? resEmp : [];
 
-      // LocalStorage Persistence Layer for Standups: Ensures recorded standups are preserved across redeployments
+      // LocalStorage Persistence Layer for Standups: Ensures recorded standups are preserved across redeployments and reloads
       try {
         const cachedStdRaw = localStorage.getItem("bytepx_standups_cache");
         if (cachedStdRaw) {
-          const cachedStds: Standup[] = JSON.parse(cachedStdRaw);
+          const cachedStds: StandupRecord[] = JSON.parse(cachedStdRaw);
           if (Array.isArray(cachedStds) && cachedStds.length > 0) {
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const serverStdIds = new Set(fetchedStandups.map(s => s.id));
-            const missingStds = cachedStds.filter(s => s && s.id && !serverStdIds.has(s.id) && s.date === todayStr);
-            if (missingStds.length > 0) {
+            const stdMap = new Map<string, StandupRecord>();
+            fetchedStandups.forEach(s => {
+              if (s && s.id) stdMap.set(s.id, s);
+            });
+            let needServerSync = false;
+            const missingStds: StandupRecord[] = [];
+            cachedStds.forEach(s => {
+              if (s && s.id && !stdMap.has(s.id)) {
+                stdMap.set(s.id, s);
+                missingStds.push(s);
+                needServerSync = true;
+              }
+            });
+            fetchedStandups = Array.from(stdMap.values());
+            if (needServerSync && missingStds.length > 0) {
               await fetch("/api/standups", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ bulk: true, standups: missingStds })
               });
-              fetchedStandups = [...fetchedStandups, ...missingStds];
             }
           }
         }
@@ -146,21 +178,32 @@ export default function StandupDashboard() {
         }
       } catch (e) {}
 
-      // LocalStorage Persistence Layer: Ensures newly added employees are never lost across redeployments
+      // LocalStorage Persistence Layer for Employees: Ensures newly added employees are never lost across redeployments
       try {
         const cachedRaw = localStorage.getItem("bytepx_employees_cache");
         if (cachedRaw) {
           const cachedEmps: Employee[] = JSON.parse(cachedRaw);
           if (Array.isArray(cachedEmps) && cachedEmps.length > 0) {
-            const serverEmails = new Set(fetchedEmployees.map(e => e.email.toLowerCase()));
-            const missing = cachedEmps.filter(e => e && e.email && !serverEmails.has(e.email.toLowerCase()));
-            if (missing.length > 0) {
+            const empMap = new Map<string, Employee>();
+            fetchedEmployees.forEach(e => {
+              if (e && e.email) empMap.set(e.email.toLowerCase(), e);
+            });
+            let needEmpSync = false;
+            const missingEmps: Employee[] = [];
+            cachedEmps.forEach(e => {
+              if (e && e.email && !empMap.has(e.email.toLowerCase())) {
+                empMap.set(e.email.toLowerCase(), e);
+                missingEmps.push(e);
+                needEmpSync = true;
+              }
+            });
+            fetchedEmployees = Array.from(empMap.values());
+            if (needEmpSync && missingEmps.length > 0) {
               await fetch("/api/employees", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ bulk: true, employees: [...fetchedEmployees, ...missing] })
+                body: JSON.stringify({ bulk: true, employees: fetchedEmployees })
               });
-              fetchedEmployees = [...fetchedEmployees, ...missing];
             }
           }
         }
@@ -358,12 +401,43 @@ export default function StandupDashboard() {
         body: JSON.stringify(manualEntry)
       });
       if (res.ok) {
+        const data = await res.json();
         setShowManualStandup(false);
         setManualEntry({ name: "", email: "", project: "", tasks: "", hours: "7.5", blocker: "None" });
-        fetchData();
+        if (data.standups && Array.isArray(data.standups)) {
+          setStandups(data.standups);
+          localStorage.setItem("bytepx_standups_cache", JSON.stringify(data.standups));
+        } else {
+          fetchData();
+        }
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Clear Database (Reset all Standup records on demand)
+  const handleClearDatabase = async () => {
+    const confirmed = window.confirm(
+      "⚠️ Are you sure you want to clear all standup check-in data from the database?\n\nThis will reset today's dashboard records across all views. This action cannot be undone."
+    );
+    if (!confirmed) return;
+
+    try {
+      setClearingDb(true);
+      await fetch("/api/standups?action=clear_all", { method: "DELETE" });
+      localStorage.removeItem("bytepx_standups_cache");
+      setStandups([]);
+      setTriggerMsg("🗑️ Database cleared successfully! All standup check-in records have been reset.");
+      setTimeout(() => setTriggerMsg(null), 5000);
+    } catch (err) {
+      console.error("Failed to clear database:", err);
+      localStorage.removeItem("bytepx_standups_cache");
+      setStandups([]);
+      setTriggerMsg("Standup cache cleared locally.");
+      setTimeout(() => setTriggerMsg(null), 4000);
+    } finally {
+      setClearingDb(false);
     }
   };
 
@@ -478,6 +552,16 @@ export default function StandupDashboard() {
             >
               {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
               {copied ? "Copied!" : "Copy Briefing"}
+            </button>
+
+            <button
+              onClick={handleClearDatabase}
+              disabled={clearingDb || standups.length === 0}
+              title="Clear all recorded standup check-ins from database"
+              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {clearingDb ? <RefreshCw className="w-4 h-4 animate-spin text-rose-600 dark:text-rose-400" /> : <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
+              <span>Clear DB</span>
             </button>
 
             <button
@@ -1612,6 +1696,46 @@ export default function StandupDashboard() {
                 placeholder="https://script.google.com/macros/s/.../exec"
                 className="w-full px-3.5 py-2 text-xs md:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono shadow-sm"
               />
+            </div>
+
+            {/* Database & Storage Management (Danger Zone) */}
+            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-rose-200 dark:border-rose-900/50 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200 dark:border-rose-800/50">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">Database & Storage Management</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Manage data persistence, caching, and clean up historical standup check-ins.</p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Auto-Persistence Active</span>
+                </div>
+                <p>
+                  Your dashboard standup records and registered team members are automatically synced and persisted in local browser storage and server storage. Refreshing or reopening the tab will <b>never</b> lose your data.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Reset Standup Check-in Records</span>
+                  <span className="text-[11px] text-slate-400">Clears all {standups.length} recorded standup responses from both the server database and local cache.</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleClearDatabase}
+                  disabled={clearingDb || standups.length === 0}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl text-xs md:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {clearingDb ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span>Clear All Check-ins ({standups.length})</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

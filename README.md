@@ -74,13 +74,13 @@
 flowchart TB
     subgraph GoogleWorkspace["Google Workspace Ecosystem"]
         GChat["🤖 Google Chat 1:1 DM<br/>(Employee Space)"]
-        GAS["⚡ Google Apps Script<br/>(1:1 Broadcast Dispatcher)"]
-        GCP["☁️ Google Cloud Platform<br/>(Google Chat API / Cards V2)"]
+        GCP["☁️ Google Cloud Platform<br/>(Google Chat API / Service Account RSA-256)"]
     end
 
     subgraph BytePxSuite["Next.js Serverless Platform (Vercel)"]
-        API_Bot["/api/chat-bot<br/>(Webhook Receiver)"]
-        API_Trigger["/api/trigger-bot<br/>(Broadcast Dispatcher)"]
+        API_Bot["/api/chat-bot & /api/chat/google<br/>(Inbound Webhook Receiver)"]
+        API_Trigger["/api/trigger-bot<br/>(Direct JWT Dispatcher)"]
+        DirectEngine["⚡ Direct Service Account Engine<br/>(lib/googleChatDirect.ts)"]
         API_Emp["/api/employees<br/>(Directory & Bulk Sync)"]
         API_Std["/api/standups<br/>(Worklogs Storage)"]
         
@@ -92,8 +92,9 @@ flowchart TB
     end
 
     Dashboard -->|1-Click 'Send Bot'| API_Trigger
-    API_Trigger -->|HTTP POST Webhook| GAS
-    GAS -->|Direct 1:1 Message| GChat
+    API_Trigger --> DirectEngine
+    DirectEngine -->|Direct Google Chat API Call| GCP
+    GCP -->|Direct 1:1 Message| GChat
     
     GChat -->|Employee Replies| GCP
     GCP -->|HTTP POST Event| API_Bot
@@ -113,25 +114,28 @@ sequenceDiagram
     autonumber
     actor Admin as 👔 Admin / Leadership
     participant UI as 📊 Executive Dashboard
-    participant API as ⚡ Next.js API (/api/trigger-bot & /api/chat-bot)
-    participant GAS as 🚀 Google Apps Script (Code.gs)
+    participant API as ⚡ Next.js API (/api/trigger-bot)
+    participant Direct as 🔐 Service Account Engine (lib/googleChatDirect.ts)
+    participant GCP as ☁️ Google Chat API
     participant GChat as 🤖 Google Chat (1:1 DM)
     actor Emp as 👤 Employee
     participant NLP as 🧠 NLP Engine (lib/parser.ts)
     participant DB as 💾 DB & Storage (lib/db.ts)
 
-    Admin->>UI: Clicks "Send Bot" (or Scheduled Cron triggers)
+    Admin->>UI: Clicks "Send Bot"
     UI->>API: POST /api/trigger-bot?action=trigger
-    API->>GAS: POST { action: "broadcast", employees: [...] }
-    GAS->>GChat: Dispatch 1:1 Card Message to Employee DMs
+    API->>Direct: broadcastDirectStandup()
+    Direct->>GCP: GET /spaces (Auto-discover active 1:1 DMs & members)
+    Direct->>GCP: POST /spaces/{space}/messages (JWT RSA-256 Auth)
+    GCP->>GChat: Dispatch 1:1 Card Message to Employee DMs
     GChat->>Emp: Notification: Morning Standup Prompt
 
     Emp->>GChat: Replies: "Erp automation 6 hours, blocker: none"
-    GChat->>API: POST /api/chat-bot (MESSAGE Event)
-    API->>NLP: parseStandupText("Erp automation 6 hours, blocker: none")
+    GChat->>API: POST /api/chat/google (MESSAGE Event)
+    API->>NLP: parseStandupMessage("Erp automation 6 hours, blocker: none")
     NLP-->>API: Extracted: { project: "Erp Automation", tasks: "Erp automation", hours: 6, blocker: "None" }
     API->>DB: saveStandup(parsedRecord)
-    API-->>GChat: Return CardsV2 Confirmation Badge ("✅ Logged 6.0h for Erp Automation")
+    API-->>GChat: Return CardsV2 Confirmation Card
     GChat-->>Emp: Instant Confirmation Card Displayed
 
     UI->>DB: GET /api/standups (Polling / Real-Time Refresh)

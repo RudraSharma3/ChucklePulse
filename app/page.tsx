@@ -119,8 +119,32 @@ export default function StandupDashboard() {
         fetch("/api/settings").then(r => r.json())
       ]);
 
-      const fetchedStandups = Array.isArray(resStd) ? resStd : [];
+      let fetchedStandups = Array.isArray(resStd) ? resStd : [];
       let fetchedEmployees = Array.isArray(resEmp) ? resEmp : [];
+
+      // LocalStorage Persistence Layer for Standups: Ensures recorded standups are preserved across redeployments
+      try {
+        const cachedStdRaw = localStorage.getItem("bytepx_standups_cache");
+        if (cachedStdRaw) {
+          const cachedStds: Standup[] = JSON.parse(cachedStdRaw);
+          if (Array.isArray(cachedStds) && cachedStds.length > 0) {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const serverStdIds = new Set(fetchedStandups.map(s => s.id));
+            const missingStds = cachedStds.filter(s => s && s.id && !serverStdIds.has(s.id) && s.date === todayStr);
+            if (missingStds.length > 0) {
+              await fetch("/api/standups", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ bulk: true, standups: missingStds })
+              });
+              fetchedStandups = [...fetchedStandups, ...missingStds];
+            }
+          }
+        }
+        if (fetchedStandups.length > 0) {
+          localStorage.setItem("bytepx_standups_cache", JSON.stringify(fetchedStandups));
+        }
+      } catch (e) {}
 
       // LocalStorage Persistence Layer: Ensures newly added employees are never lost across redeployments
       try {

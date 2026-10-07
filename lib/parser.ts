@@ -41,11 +41,21 @@ export function parseStandupMessage(text: string): {
     hasExplicitHours = true;
   }
 
-  // 2. Extract Explicit Hours (e.g. "for 5 hoyrs", "for next 5 hours", "5 hours", "6.5h", "7hrs", "4 hr", "(6.5h)", "6.5 hours")
-  const hoursMatch = clean.match(/(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/i);
-  if (hoursMatch) {
-    hours = parseFloat(hoursMatch[1]);
-    hasExplicitHours = true;
+  // 2. Extract and SUM Explicit Hours across the entire message
+  const hoursRegex = /(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/gi;
+  const allMatches = Array.from(clean.matchAll(hoursRegex));
+  if (allMatches.length > 0) {
+    let sum = 0;
+    for (const m of allMatches) {
+      const val = parseFloat(m[1]);
+      if (!isNaN(val) && val > 0 && val <= 24) {
+        sum += val;
+      }
+    }
+    if (sum > 0) {
+      hours = +(sum.toFixed(1));
+      hasExplicitHours = true;
+    }
   } else if (isOnlyHours && onlyHoursMatch) {
     hours = parseFloat(onlyHoursMatch[1]);
     hasExplicitHours = true;

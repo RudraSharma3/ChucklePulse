@@ -363,8 +363,153 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const timeStr = formatLocalTime(now);
     const dateStr = formatLocalDate(now);
+    const existingDraft = db.getPendingDraft(userKey);
 
-    // Determine final hours: use explicit hours if given, or 0 if on leave, or default to 8.0 hrs
+    // =========================================================================
+    // CASE 1: USER IS REPLYING TO AN EXISTING DRAFT (HOURS OR REMAINING TASKS)
+    // =========================================================================
+    if (existingDraft) {
+      let combinedHours = 8.0;
+      let combinedTasks = existingDraft.tasks;
+      let combinedProject = existingDraft.project;
+      let combinedBlocker = existingDraft.blocker || parsed.blocker || 'None';
+
+      // If user is logging leave or standby for the rest of the day
+      if (parsed.isOnLeave || /half\s+day|day\s+off|leave/i.test(lowerText)) {
+        combinedHours = existingDraft.hours || 4.0;
+        combinedTasks = `${existingDraft.tasks} (Half-Day Leave)`;
+        combinedBlocker = 'Half-Day Leave';
+      } else if (parsed.isAwaitingTask || /awaiting|bench|no\s+task|free/i.test(lowerText)) {
+        combinedHours = 8.0;
+        const rem = existingDraft.remainingHours || (8.0 - (existingDraft.hours || 0));
+        combinedProject = `${existingDraft.project} + Standby`;
+        combinedTasks = `${existingDraft.tasks} (${existingDraft.hours || 0} hrs), Awaiting Tasks (${rem} hrs)`;
+        combinedBlocker = `Awaiting task allocation for ${rem} hrs`;
+      } else if (existingDraft.hours && existingDraft.hours > 0) {
+        // User had partial hours previously (e.g. 5.0h) and is providing additional hours / tasks
+        const addHours = parsed.hours > 0 ? parsed.hours : (existingDraft.remainingHours || (8.0 - existingDraft.hours));
+        combinedHours = +(existingDraft.hours + addHours).toFixed(1);
+        if (parsed.tasks && parsed.tasks !== cleanText) {
+          combinedTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${parsed.tasks} (${addHours}h)`;
+        } else if (!parsed.isOnlyHours) {
+          combinedTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${cleanText} (${addHours}h)`;
+        }
+        if (parsed.project && parsed.project !== 'Daily Tasks' && parsed.project !== existingDraft.project) {
+          combinedProject = `${existingDraft.project} & ${parsed.project}`;
+        }
+      } else {
+        // User had no hours previously and is now providing hours for the task
+        combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
+      }
+
+      // If combined hours is STILL less than 8.0, prompt for remaining capacity!
+      if (combinedHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+        const remaining = +(8.0 - combinedHours).toFixed(1);
+        db.savePendingDraft(userKey, {
+          tasks: combinedTasks,
+          project: combinedProject,
+          blocker: combinedBlocker,
+          hours: combinedHours,
+          remainingHours: remaining,
+          date: dateStr
+        });
+
+        const capacityCard = buildRemainingHoursCard({
+          userName: firstName,
+          project: combinedProject,
+          tasks: combinedTasks,
+          loggedHours: combinedHours,
+          remainingHours: remaining
+        });
+
+        return chatJson(formatChatResponse(capacityCard));
+      }
+
+      // Completed standup
+      const record: StandupRecord = {
+        id: "std_" + Date.now(),
+        name: userName,
+        email: userEmail || "team@bytepx.com",
+        dept: "Engineering",
+        tasks: combinedTasks,
+        hours: combinedHours,
+        project: combinedProject,
+        blocker: combinedBlocker,
+        date: dateStr,
+        time: timeStr,
+        source: "Google Chat 1:1 Bot",
+        rawText: cleanText
+      };
+
+      db.saveStandup(record);
+      db.clearPendingDraft(userKey);
+
+      const confirmationCard = buildStandupConfirmationCard({
+        employeeName: record.name,
+        project: record.project,
+        tasks: record.tasks,
+        hours: record.hours,
+        blocker: record.blocker,
+        time: timeStr
+      });
+
+      return chatJson(formatChatResponse(confirmationCard));
+    }
+
+    // =========================================================================
+    // CASE 2: USER PROVIDED NO HOURS AT ALL (e.g. "erp automation")
+    // =========================================================================
+    if (!parsed.hasExplicitHours && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const draftProject = parsed.project || 'Daily Tasks';
+      const draftTasks = parsed.tasks || cleanText;
+
+      db.savePendingDraft(userKey, {
+        tasks: draftTasks,
+        project: draftProject,
+        blocker: parsed.blocker || 'None',
+        date: dateStr
+      });
+
+      const hoursCard = buildHoursRequestCard({
+        userName: firstName,
+        tasks: draftTasks,
+        project: draftProject
+      });
+
+      return chatJson(formatChatResponse(hoursCard));
+    }
+
+    // =========================================================================
+    // CASE 3: USER PROVIDED HOURS LESS THAN 8.0 (e.g. "Erp automation for 5 hours")
+    // =========================================================================
+    if (parsed.hours > 0 && parsed.hours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const remaining = +(8.0 - parsed.hours).toFixed(1);
+      const draftProject = parsed.project || 'Daily Tasks';
+      const draftTasks = parsed.tasks || cleanText;
+
+      db.savePendingDraft(userKey, {
+        tasks: draftTasks,
+        project: draftProject,
+        blocker: parsed.blocker || 'None',
+        hours: parsed.hours,
+        remainingHours: remaining,
+        date: dateStr
+      });
+
+      const capacityCard = buildRemainingHoursCard({
+        userName: firstName,
+        project: draftProject,
+        tasks: draftTasks,
+        loggedHours: parsed.hours,
+        remainingHours: remaining
+      });
+
+      return chatJson(formatChatResponse(capacityCard));
+    }
+
+    // =========================================================================
+    // CASE 4: USER PROVIDED 8.0+ HOURS OR SPECIAL STATUS (LEAVE / STANDBY)
+    // =========================================================================
     let finalHours = 8.0;
     if (parsed.hours > 0) {
       finalHours = parsed.hours;

@@ -77,7 +77,7 @@ function testRun() {
  * 🔍 Auto-discovers all spaces and 1:1 DMs where the bot is added
  */
 function autoDiscoverAllSpaces() {
-  console.log("🔍 Scanning Google Chat API for active DM spaces...");
+  console.log("🔍 Scanning Google Chat API for active DM spaces and members...");
   try {
     const token = ScriptApp.getOAuthToken();
     const res = UrlFetchApp.fetch("https://chat.googleapis.com/v1/spaces", {
@@ -89,15 +89,56 @@ function autoDiscoverAllSpaces() {
       const spaces = data.spaces || [];
       const props = PropertiesService.getScriptProperties();
       let added = 0;
+      const discoveredEmployees = [];
+
       spaces.forEach(sp => {
         if (sp.name) {
-          const spaceKey = "DM_" + (sp.displayName ? sp.displayName.toLowerCase().replace(/[^a-z0-9]/g, '_') : sp.name.replace(/[^a-zA-Z0-9]/g, '_'));
-          props.setProperty(spaceKey, sp.name);
-          added++;
-          console.log(`📌 Auto-discovered space: ${sp.name} (${sp.displayName || 'Direct Message'})`);
+          // 1. Fetch space members to identify the employee
+          try {
+            const memRes = UrlFetchApp.fetch("https://chat.googleapis.com/v1/" + sp.name + "/members", {
+              headers: { Authorization: "Bearer " + token },
+              muteHttpExceptions: true
+            });
+            if (memRes.getResponseCode() === 200) {
+              const memData = JSON.parse(memRes.getContentText());
+              const memberships = memData.memberships || [];
+              memberships.forEach(m => {
+                const member = m.member || {};
+                if (member.type === "HUMAN" || !member.name.includes("app/")) {
+                  const displayName = member.displayName || "";
+                  const email = (member.email || "").toLowerCase();
+                  const nameKey = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                  if (email) {
+                    props.setProperty("DM_" + email, sp.name);
+                    added++;
+                    console.log(`📌 Mapped DM by email: ${email} -> ${sp.name}`);
+                  }
+                  if (nameKey) {
+                    props.setProperty("DM_" + nameKey, sp.name);
+                  }
+
+                  discoveredEmployees.push({
+                    name: displayName || "Team Member",
+                    email: email || (nameKey ? `${nameKey}@bytepx.com` : ""),
+                    space: sp.name
+                  });
+                }
+              });
+            }
+          } catch (memErr) {
+            console.warn("Member fetch error for " + sp.name + ":", memErr.message);
+          }
+
+          // Fallback mapping by space displayName
+          if (sp.displayName) {
+            const spaceKey = "DM_" + sp.displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            props.setProperty(spaceKey, sp.name);
+          }
         }
       });
-      return { success: true, count: spaces.length, added: added };
+
+      return { success: true, count: spaces.length, added: added, employees: discoveredEmployees };
     }
   } catch (e) {
     console.warn("autoDiscoverAllSpaces error:", e.message);
@@ -360,6 +401,14 @@ function sendDirectMessageToAllEmployees(isNudge) {
   console.log(isNudge ? `⏰ Nudging pending employees (${settings.nudgeIntervalMinutes}m cycle)...` : `⏰ Broadcasting Daily Standup at ${settings.standupTime}...`);
   
   const token = ScriptApp.getOAuthToken();
+
+  // 1. Auto-discover all active 1:1 DMs in real time so newly added or active team members (Prerna, Tanmay, etc.) are always mapped
+  try {
+    autoDiscoverAllSpaces();
+  } catch (discErr) {
+    console.warn("Auto-discover warning:", discErr.message);
+  }
+
   const scriptProps = PropertiesService.getScriptProperties().getProperties();
   const today = new Date().toISOString().slice(0, 10);
   
@@ -391,23 +440,25 @@ function sendDirectMessageToAllEmployees(isNudge) {
   const targetSpaces = [];
   const addedSpaces = new Set();
 
-  // 1. Check local script properties
+  // 2. Check local script properties for all registered DM spaces
   for (const key in scriptProps) {
     if (key.startsWith("DM_") && scriptProps[key]) {
       const email = key.replace("DM_", "").toLowerCase();
-      // If nudge mode, only message employees who haven't checked in today
-      if (!isNudge || !completedEmails.has(email)) {
-        targetSpaces.push({
-          key: key,
-          spaceName: scriptProps[key],
-          email: email
-        });
-        addedSpaces.add(scriptProps[key]);
+      const spaceName = scriptProps[key];
+      if (!addedSpaces.has(spaceName)) {
+        if (!isNudge || !completedEmails.has(email)) {
+          targetSpaces.push({
+            key: key,
+            spaceName: spaceName,
+            email: email
+          });
+          addedSpaces.add(spaceName);
+        }
       }
     }
   }
 
-  // 2. Also check Vercel DB employees for any recorded webhookUrl space IDs
+  // 3. Also check Vercel DB employees for any recorded webhookUrl space IDs
   try {
     const empRes = UrlFetchApp.fetch(CONFIG.DASHBOARD_URL + "/api/employees", { muteHttpExceptions: true });
     if (empRes.getResponseCode() === 200) {
@@ -423,14 +474,15 @@ function sendDirectMessageToAllEmployees(isNudge) {
                 email: email
               });
               addedSpaces.add(emp.webhookUrl);
-              // Cache in script props
               PropertiesService.getScriptProperties().setProperty("DM_" + email, emp.webhookUrl);
             }
           }
         });
       }
     }
-  // 3. Also check local EMPLOYEE_RECORDS for any space mappings
+  } catch (err) {}
+
+  // 4. Also check local EMPLOYEE_RECORDS for any space mappings
   try {
     const rawLocalEmps = scriptProps["EMPLOYEE_RECORDS"] || "[]";
     const localEmpList = JSON.parse(rawLocalEmps);

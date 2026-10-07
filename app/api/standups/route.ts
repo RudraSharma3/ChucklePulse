@@ -30,11 +30,21 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    if (body.bulk === true && Array.isArray(body.standups)) {
+      body.standups.forEach((s: StandupRecord) => {
+        if (s && s.email && s.tasks) {
+          db.saveStandup(s);
+        }
+      });
+      return NextResponse.json({ success: true, standups: db.getStandups() });
+    }
+
     const parsed = parseStandupMessage(body.tasks || body.rawText || "");
     const now = new Date();
     
     const record: StandupRecord = {
-      id: "std_" + Date.now(),
+      id: body.id || ("std_" + Date.now()),
       employeeId: body.employeeId || null,
       name: body.name || "Employee",
       email: body.email || "team@bytepx.com",
@@ -42,9 +52,9 @@ export async function POST(req: NextRequest) {
       tasks: body.tasks || parsed.tasks,
       hours: body.hours ? parseFloat(body.hours) : parsed.hours,
       project: body.project || parsed.project,
-      blocker: body.blocker || parsed.blocker,
-      date: formatLocalDate(now),
-      time: formatLocalTime(now),
+      blocker: body.blocker || parsed.blocker || "None",
+      date: body.date || formatLocalDate(now),
+      time: body.time || formatLocalTime(now),
       source: body.source || "Dashboard Manual"
     };
 

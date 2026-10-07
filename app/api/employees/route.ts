@@ -52,6 +52,32 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // Handle Bulk Sync / Rehydration
+    if (body.bulk && Array.isArray(body.employees)) {
+      const current = db.getEmployees();
+      const empMap = new Map<string, Employee>();
+      current.forEach(e => empMap.set(e.email.toLowerCase(), e));
+      body.employees.forEach((e: any) => {
+        if (e && e.email) {
+          const cleanEmail = e.email.toLowerCase();
+          const existing = empMap.get(cleanEmail);
+          empMap.set(cleanEmail, {
+            id: e.id || existing?.id || ("emp_" + Date.now()),
+            name: e.name || existing?.name || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            dept: e.dept || existing?.dept || "Engineering",
+            role: e.role || existing?.role || "Team Member",
+            webhookUrl: existing?.webhookUrl || e.webhookUrl || "",
+            createdAt: e.createdAt || existing?.createdAt || new Date().toISOString()
+          });
+        }
+      });
+      const merged = Array.from(empMap.values());
+      db.saveEmployees(merged);
+      return NextResponse.json({ success: true, count: merged.length });
+    }
+
     if (!body.name || !body.email) {
       return NextResponse.json({ error: "Name and Email are required" }, { status: 400 });
     }
@@ -69,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     const idx = employees.findIndex(e => e.email.toLowerCase() === newEmp.email.toLowerCase() || e.id === newEmp.id);
     if (idx >= 0) {
-      employees[idx] = { ...employees[idx], ...newEmp };
+      employees[idx] = { ...employees[idx], ...newEmp, webhookUrl: employees[idx].webhookUrl || newEmp.webhookUrl };
     } else {
       employees.push(newEmp);
     }

@@ -34,14 +34,17 @@ import {
   BarChart3,
   MessageSquare,
   ShieldCheck,
-  Sparkle
+  Sparkle,
+  Table as TableIcon,
+  LayoutGrid
 } from "lucide-react";
 import { Employee, StandupRecord, CompanySettings, ProjectGroup } from "@/lib/types";
 import { extractStructuredTasks } from "@/lib/parser";
 
 export default function StandupDashboard() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [activeTab, setActiveTab] = useState<"projects" | "tasks" | "feed" | "attendance" | "settings">("projects");
+  const [activeTab, setActiveTab] = useState<"projects" | "tasks" | "feed" | "attendance" | "settings">("tasks");
+  const [taskViewMode, setTaskViewMode] = useState<"table" | "cards">("table");
   const [standups, setStandups] = useState<StandupRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -115,8 +118,35 @@ export default function StandupDashboard() {
         fetch("/api/employees").then(r => r.json()),
         fetch("/api/settings").then(r => r.json())
       ]);
-      setStandups(Array.isArray(resStd) ? resStd : []);
-      setEmployees(Array.isArray(resEmp) ? resEmp : []);
+
+      const fetchedStandups = Array.isArray(resStd) ? resStd : [];
+      let fetchedEmployees = Array.isArray(resEmp) ? resEmp : [];
+
+      // LocalStorage Persistence Layer: Ensures newly added employees are never lost across redeployments
+      try {
+        const cachedRaw = localStorage.getItem("bytepx_employees_cache");
+        if (cachedRaw) {
+          const cachedEmps: Employee[] = JSON.parse(cachedRaw);
+          if (Array.isArray(cachedEmps) && cachedEmps.length > 0) {
+            const serverEmails = new Set(fetchedEmployees.map(e => e.email.toLowerCase()));
+            const missing = cachedEmps.filter(e => e && e.email && !serverEmails.has(e.email.toLowerCase()));
+            if (missing.length > 0) {
+              await fetch("/api/employees", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ bulk: true, employees: [...fetchedEmployees, ...missing] })
+              });
+              fetchedEmployees = [...fetchedEmployees, ...missing];
+            }
+          }
+        }
+        if (fetchedEmployees.length > 0) {
+          localStorage.setItem("bytepx_employees_cache", JSON.stringify(fetchedEmployees));
+        }
+      } catch (e) {}
+
+      setStandups(fetchedStandups);
+      setEmployees(fetchedEmployees);
       setSettings(resSet);
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
@@ -788,22 +818,59 @@ export default function StandupDashboard() {
         )}
 
         {/* ==================================================================== */}
-        {/* SPACE 2: DEDICATED TASKS & WORKLOGS (ITEMIZED WORKSPACE)             */}
+        {/* SPACE 2: PROFESSIONAL LIVE STANDUP RESPONSES TABLE & WORKLOGS       */}
         {/* ==================================================================== */}
         {activeTab === "tasks" && (
           <div className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            {/* Header with Table Controls & View Mode Toggle */}
+            <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <ListTodo className="w-5 h-5 text-indigo-600" /> Employee Tasks & Worklogs Workspace
+                <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <TableIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> Daily Standup Responses Table
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Itemized task lists submitted by each team member with status & hours breakdown.
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Live itemized task breakdowns, project allocations, hours, and blockers submitted by team members.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500 font-medium">Showing: <b>{filteredStandups.length} check-in logs</b></span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* View Mode Toggle */}
+                <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60">
+                  <button
+                    onClick={() => setTaskViewMode("table")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      taskViewMode === "table"
+                        ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <TableIcon className="w-3.5 h-3.5" /> Table View
+                  </button>
+                  <button
+                    onClick={() => setTaskViewMode("cards")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      taskViewMode === "cards"
+                        ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" /> Grid Cards
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleCopySummary}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" /> {copied ? "Copied!" : "Copy Summary"}
+                </button>
+
+                <button
+                  onClick={handleExportCSV}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export CSV
+                </button>
               </div>
             </div>
 
@@ -812,12 +879,179 @@ export default function StandupDashboard() {
                 <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-slate-800/80 mx-auto flex items-center justify-center text-indigo-600 dark:text-slate-400">
                   <ListTodo className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No Task Worklogs Yet</h3>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No Standup Responses Recorded Yet</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  When employees reply to the Google Chat Bot, their individual tasks will appear here as itemized work cards.
+                  When employees reply to the Google Chat Bot, their updates will populate this live responses table in real time.
                 </p>
+                <button
+                  onClick={handleTriggerBot}
+                  disabled={triggering}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" /> Send Bot to Team
+                </button>
+              </div>
+            ) : taskViewMode === "table" ? (
+              /* ========================================================== */
+              /* PROFESSIONAL STANDUP RESPONSES TABLE                       */
+              /* ========================================================== */
+              <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <th className="py-3.5 px-4 w-12 text-center">#</th>
+                        <th className="py-3.5 px-4 min-w-[200px]">Employee</th>
+                        <th className="py-3.5 px-4 min-w-[160px]">Project / Initiative</th>
+                        <th className="py-3.5 px-4 min-w-[340px]">Planned Tasks (Itemized)</th>
+                        <th className="py-3.5 px-4 min-w-[110px]">Total Hours</th>
+                        <th className="py-3.5 px-4 min-w-[160px]">Blockers</th>
+                        <th className="py-3.5 px-4 min-w-[130px]">Time & Source</th>
+                        <th className="py-3.5 px-4 text-right w-24">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                      {filteredStandups.map((s, index) => {
+                        const taskItems = s.taskList && s.taskList.length > 0 ? s.taskList : extractStructuredTasks(s.tasks);
+                        const isBlocked = s.blocker && s.blocker !== "None";
+
+                        return (
+                          <tr
+                            key={s.id}
+                            className="hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition-colors group"
+                          >
+                            {/* 1. Index */}
+                            <td className="py-4 px-4 text-center font-mono text-slate-400 font-medium">
+                              {index + 1}
+                            </td>
+
+                            {/* 2. Employee Info */}
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm shadow-indigo-500/20">
+                                  {s.name.charAt(0)}
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                    {s.name}
+                                  </h4>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium border border-slate-200/60 dark:border-slate-700/50">
+                                      {s.dept || "Engineering"}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{s.email}</p>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 3. Project Initiative */}
+                            <td className="py-4 px-4">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold text-xs border border-indigo-100 dark:border-indigo-500/20">
+                                <Briefcase className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                <span className="truncate max-w-[150px]">{s.project || "Daily Tasks"}</span>
+                              </span>
+                            </td>
+
+                            {/* 4. Itemized Tasks Breakdown (Task 1, Task 2, Task 3) */}
+                            <td className="py-4 px-4">
+                              <div className="space-y-1.5">
+                                {taskItems.map((taskText, tIdx) => (
+                                  <div
+                                    key={tIdx}
+                                    className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-800/80 flex items-start gap-2 group/task hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all"
+                                  >
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] font-mono shrink-0 border border-emerald-500/20">
+                                      Task {tIdx + 1}
+                                    </span>
+                                    <span className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
+                                      {taskText}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+
+                            {/* 5. Total Hours */}
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`px-2.5 py-1 rounded-lg font-bold font-mono text-xs border ${
+                                    s.hours >= 8.0
+                                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+                                      : s.hours > 0
+                                      ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                  }`}>
+                                    {s.hours} hrs
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 block">
+                                  {s.hours >= 8 ? "Full day (8h)" : `${Math.round((s.hours / 8) * 100)}% shift`}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 6. Blockers */}
+                            <td className="py-4 px-4">
+                              {isBlocked ? (
+                                <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-1.5">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                                  <span className="font-semibold leading-tight">{s.blocker}</span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-medium border border-emerald-200/60 dark:border-emerald-500/20">
+                                  <Check className="w-3 h-3 text-emerald-600" /> None
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 7. Time & Source */}
+                            <td className="py-4 px-4">
+                              <div className="space-y-0.5">
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 font-mono block">
+                                  {s.time}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block truncate">
+                                  {s.source || "Google Chat 1:1"}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 8. Actions */}
+                            <td className="py-4 px-4 text-right">
+                              <button
+                                onClick={() => {
+                                  const textToCopy = `👤 ${s.name} (${s.project || "Daily Tasks"} • ${s.hours}h)\n📝 Tasks:\n${taskItems.map((t, idx) => `  ${idx + 1}. ${t}`).join('\n')}\n⚠️ Blocker: ${s.blocker || "None"}`;
+                                  navigator.clipboard.writeText(textToCopy);
+                                  alert(`Copied ${s.name}'s standup update!`);
+                                }}
+                                title="Copy standup entry"
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-100 dark:bg-slate-800 dark:hover:bg-indigo-900/40 text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 transition-colors inline-flex items-center justify-center cursor-pointer"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Table Footer Summary */}
+                <div className="py-3 px-4 bg-slate-50/90 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-2">
+                  <span>Showing <b>{filteredStandups.length}</b> total standup entries</span>
+                  <div className="flex items-center gap-4">
+                    <span>Total Hours: <b className="text-indigo-600 dark:text-indigo-400 font-mono">{metrics.totalHours} hrs</b></span>
+                    <span>Blockers: <b className={metrics.activeBlockers > 0 ? "text-rose-600 font-mono" : "text-emerald-600 font-mono"}>{metrics.activeBlockers} active</b></span>
+                  </div>
+                </div>
               </div>
             ) : (
+              /* ========================================================== */
+              /* GRID CARDS VIEW                                            */
+              /* ========================================================== */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {filteredStandups.map((s) => {
                   const taskItems = s.taskList && s.taskList.length > 0 ? s.taskList : extractStructuredTasks(s.tasks);
@@ -852,7 +1086,7 @@ export default function StandupDashboard() {
                         <div className="flex items-center gap-2">
                           <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700/60">
                             <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
-                            {s.project || "General Tasks"}
+                            {s.project || "Daily Tasks"}
                           </span>
                           <span className="text-[11px] text-slate-400 font-mono">{s.time} via {s.source}</span>
                         </div>

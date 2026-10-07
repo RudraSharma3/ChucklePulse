@@ -152,6 +152,47 @@ export async function sendDirectMessageToSpace(spaceName: string, payload: any):
 }
 
 /**
+ * Scans Google Chat API spaces and memberships in real-time to find 1:1 DMs for all employees
+ */
+export async function discoverAllSpacesAndMembers(token: string): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const listRes = await fetch("https://chat.googleapis.com/v1/spaces", {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const spaces = data.spaces || [];
+      for (const sp of spaces) {
+        if (!sp.name) continue;
+        try {
+          const memRes = await fetch(`https://chat.googleapis.com/v1/${sp.name}/members`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          if (memRes.ok) {
+            const memData = await memRes.json();
+            const memberships = memData.memberships || [];
+            for (const m of memberships) {
+              const member = m.member || {};
+              if (member.type === "HUMAN" || !member.name?.includes("app/")) {
+                const email = (member.email || "").toLowerCase().trim();
+                const displayName = (member.displayName || "").toLowerCase().trim();
+                const firstName = displayName.split(' ')[0];
+
+                if (email) map.set(email, sp.name);
+                if (displayName) map.set(displayName, sp.name);
+                if (firstName) map.set(firstName, sp.name);
+              }
+            }
+          }
+        } catch (memErr) {}
+      }
+    }
+  } catch (e) {}
+  return map;
+}
+
+/**
  * Finds or creates a 1:1 Direct Message Space with an employee via Google Chat API
  */
 export async function findOrCreateDmSpace(email: string, token: string): Promise<string | null> {
@@ -242,6 +283,12 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
 
   let dbUpdated = false;
 
+  // Real-time scan of all Google Chat spaces and members
+  let discoveredSpaces = new Map<string, string>();
+  try {
+    discoveredSpaces = await discoverAllSpacesAndMembers(token);
+  } catch (dErr) {}
+
   for (const emp of eligibleEmployees) {
     let spaceName = emp.webhookUrl;
 
@@ -252,10 +299,29 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
       dbUpdated = true;
     }
 
-    // If spaceName not yet saved for employee, auto-discover 1:1 DM space
+    // Try finding space from real-time discovered spaces
+    if (!spaceName || !spaceName.startsWith('spaces/')) {
+      const cleanEmail = emp.email.toLowerCase().trim();
+      const empName = emp.name.toLowerCase().trim();
+      const firstName = empName.split(' ')[0];
+      const usernamePrefix = cleanEmail.split('@')[0];
+
+      const found = discoveredSpaces.get(cleanEmail) ||
+                    discoveredSpaces.get(empName) ||
+                    discoveredSpaces.get(firstName) ||
+                    discoveredSpaces.get(usernamePrefix);
+
+      if (found && (cleanEmail === 'rudra@bytepx.com' || found !== 'spaces/iJ9VmqAAAAE')) {
+        spaceName = found;
+        emp.webhookUrl = found;
+        dbUpdated = true;
+      }
+    }
+
+    // Fallback: Try findOrCreateDmSpace
     if (!spaceName || !spaceName.startsWith('spaces/')) {
       const discoveredSpace = await findOrCreateDmSpace(emp.email, token);
-      if (discoveredSpace && discoveredSpace !== 'spaces/iJ9VmqAAAAE') {
+      if (discoveredSpace && (emp.email.toLowerCase() === 'rudra@bytepx.com' || discoveredSpace !== 'spaces/iJ9VmqAAAAE')) {
         spaceName = discoveredSpace;
         emp.webhookUrl = discoveredSpace;
         dbUpdated = true;
@@ -298,3 +364,4 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     errors
   };
 }
+

@@ -108,8 +108,6 @@ export function buildHoursRequestCard(params: {
   tasks: string;
   project: string;
 }) {
-  const endpointUrl = getBotEndpointUrl();
-
   return {
     cardsV2: [
       {
@@ -135,62 +133,8 @@ export function buildHoursRequestCard(params: {
                   }
                 },
                 {
-                  buttonList: {
-                    buttons: [
-                      {
-                        text: "4.0 hrs",
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitHours" },
-                              { key: "hours", value: "4.0" }
-                            ]
-                          }
-                        }
-                      },
-                      {
-                        text: "6.0 hrs",
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitHours" },
-                              { key: "hours", value: "6.0" }
-                            ]
-                          }
-                        }
-                      },
-                      {
-                        text: "7.5 hrs",
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitHours" },
-                              { key: "hours", value: "7.5" }
-                            ]
-                          }
-                        }
-                      },
-                      {
-                        text: "8.0 hrs",
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitHours" },
-                              { key: "hours", value: "8.0" }
-                            ]
-                          }
-                        }
-                      }
-                    ]
-                  }
-                },
-                {
                   textParagraph: {
-                    text: "<i>👉 Tap a button above or reply directly in chat with your exact hours!</i>"
+                    text: `👉 <b>Please reply directly with the number of hours you are allocating for these tasks today</b> (e.g. "8 hours", "6h", or "7.5 hrs").`
                   }
                 }
               ]
@@ -203,7 +147,7 @@ export function buildHoursRequestCard(params: {
 }
 
 /**
- * Builds an interactive Capacity Check Card when an employee logs fewer than 8 hours
+ * Builds a clean Capacity Check Card when an employee logs fewer than 8 hours, prompting manual entry for the rest
  */
 export function buildRemainingHoursCard(params: {
   userName: string;
@@ -212,7 +156,6 @@ export function buildRemainingHoursCard(params: {
   loggedHours: number;
   remainingHours: number;
 }) {
-  const endpointUrl = getBotEndpointUrl();
   const logged = params.loggedHours;
   const rem = params.remainingHours;
 
@@ -233,59 +176,6 @@ export function buildRemainingHoursCard(params: {
   const loggedText = cleanProject
     ? `📝 <b>Logged so far:</b> ${logged} hrs on <b>${cleanProject}</b>${cleanTasks && cleanTasks !== cleanProject ? ` (${cleanTasks})` : ''}`
     : `📝 <b>Logged so far:</b> ${logged} hrs${cleanTasks ? ` (${cleanTasks})` : ''}`;
-
-  const buttons: any[] = [];
-
-  // Only include "Continue on Project" button if a real project was actually specified by employee!
-  if (hasSpecificProject) {
-    buttons.push({
-      text: `+${rem} hrs on ${cleanProject}`,
-      onClick: {
-        action: {
-          function: endpointUrl,
-          parameters: [
-            { key: "actionName", value: "submitRemaining" },
-            { key: "type", value: "same_project" },
-            { key: "hours", value: String(rem) }
-          ]
-        }
-      }
-    });
-  }
-
-  // Awaiting Tasks button
-  buttons.push({
-    text: `+${rem} hrs Awaiting Tasks`,
-    onClick: {
-      action: {
-        function: endpointUrl,
-        parameters: [
-          { key: "actionName", value: "submitRemaining" },
-          { key: "type", value: "awaiting" },
-          { key: "hours", value: String(rem) }
-        ]
-      }
-    }
-  });
-
-  // Half-Day Leave button
-  buttons.push({
-    text: `Half-Day Leave (${logged}h)`,
-    onClick: {
-      action: {
-        function: endpointUrl,
-        parameters: [
-          { key: "actionName", value: "submitRemaining" },
-          { key: "type", value: "half_day" },
-          { key: "hours", value: String(rem) }
-        ]
-      }
-    }
-  });
-
-  const promptMessage = hasSpecificProject
-    ? `💬 <i>Reply directly in chat with your remaining project & tasks (e.g. "3h on Project Y" or "3h on testing") or tap an option above.</i>`
-    : `💬 <b>Please reply directly in chat with the project and tasks you are working on for the rest ${rem} hours</b> (e.g. "5h on Project X and 3h on testing").`;
 
   return {
     cardsV2: [
@@ -308,17 +198,12 @@ export function buildRemainingHoursCard(params: {
                 },
                 {
                   textParagraph: {
-                    text: `💡 <i>Our workday is 8.0 hrs (9h office shift - 1h lunch).</i><br><br>👉 <b>Ok, what about the rest ${rem} hours?</b>`
-                  }
-                },
-                {
-                  buttonList: {
-                    buttons: buttons
+                    text: `💡 <i>Our workday is 8.0 hrs (9h office shift - 1h lunch).</i>`
                   }
                 },
                 {
                   textParagraph: {
-                    text: promptMessage
+                    text: `👉 <b>Please reply directly in chat with what tasks you are doing for the remaining ${rem} hours.</b><br><br><i>Example: "${rem} hours on bug fixes and documentation" or "${rem}h on feature testing"</i>`
                   }
                 }
               ]

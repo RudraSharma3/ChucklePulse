@@ -92,7 +92,9 @@ export async function POST(req: NextRequest) {
   const userEmail = rawUserEmail || (
     userName.toLowerCase().includes('rudra') ? 'rudra@bytepx.com' :
     userName.toLowerCase().includes('tanmay') ? 'tanmay.jain@bytepx.com' :
-    ''
+    userName.toLowerCase().includes('pavana') ? 'pavana@bytepx.com' :
+    userName.toLowerCase().includes('prerna') ? 'prerna@bytepx.com' :
+    (userName && userName !== 'Team Member' ? `${userName.toLowerCase().trim().replace(/\s+/g, '.')}@bytepx.com` : '')
   );
 
   const userKey =

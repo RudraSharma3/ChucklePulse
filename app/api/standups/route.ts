@@ -64,3 +64,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 400 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    const action = searchParams.get("action");
+
+    if (action === "clear_all") {
+      db.clearAllStandups();
+      return NextResponse.json({ success: true, message: "All standups cleared successfully" });
+    }
+
+    if (id) {
+      const updated = db.deleteStandup(id);
+      return NextResponse.json({ success: true, standups: updated });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 400 });
+  }
+}

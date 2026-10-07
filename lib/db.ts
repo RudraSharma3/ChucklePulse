@@ -163,6 +163,15 @@ export const db = {
     db.syncStandupToCloud(record);
     return list;
   },
+  deleteStandup: (id: string): StandupRecord[] => {
+    let list = db.getStandups();
+    list = list.filter(s => s.id !== id);
+    writeFile(STD_FILE, list);
+    return list;
+  },
+  clearAllStandups: (): boolean => {
+    return writeFile(STD_FILE, []);
+  },
   syncStandupToCloud: (record: StandupRecord) => {
     try {
       const settings = db.getSettings();

@@ -1,4 +1,4 @@
-# 🤖 BytePx StandupPulse — Intelligent Standup Suite & Google Chat 1:1 Bot
+# 🤖 StandupPulse — Intelligent Enterprise Standup Suite & Google Chat 1:1 Bot
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
@@ -7,7 +7,7 @@
 [![Google Chat API](https://img.shields.io/badge/Google%20Chat-Cards%20V2-4285F4?style=flat-square&logo=google-chat)](https://developers.google.com/chat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-> **BytePx StandupPulse** is an enterprise-grade Daily Standup Automation Suite and Google Chat 1:1 Bot. It automatically engages employees in individual 1:1 direct messages on Google Chat with engaging morning prompts, extracts their tasks, project allocations, hours, and blockers using an intelligent NLP parser, and presents leadership with a real-time executive dashboard featuring structured table views, initiative matrices, and 1-click briefing exports.
+> **StandupPulse** is an enterprise-grade Daily Standup Automation Suite and Google Chat 1:1 Bot. It automatically engages employees in individual 1:1 direct messages on Google Chat with engaging morning prompts, extracts their tasks, project allocations, hours, and blockers using an intelligent NLP parser, and presents leadership with a real-time executive dashboard featuring structured table views, initiative matrices, and 1-click briefing exports.
 
 ---
 
@@ -15,7 +15,7 @@
 
 - [1. Executive & Functional Overview](#1-executive--functional-overview)
   - [Key Capabilities](#key-capabilities)
-  - [User Personas & Workflows](#user-personas--workspaces)
+  - [User Personas & Workflows](#user-personas--workflows)
 - [2. System Architecture](#2-system-architecture)
   - [High-Level Architectural Diagram](#high-level-architectural-diagram)
   - [End-to-End Sequence Flow](#end-to-end-sequence-flow)
@@ -77,7 +77,7 @@ flowchart TB
         GCP["☁️ Google Cloud Platform<br/>(Google Chat API / Service Account RSA-256)"]
     end
 
-    subgraph BytePxSuite["Next.js Serverless Platform (Vercel)"]
+    subgraph CompanySuite["Next.js Serverless Platform (Vercel)"]
         API_Bot["/api/chat-bot & /api/chat/google<br/>(Inbound Webhook Receiver)"]
         API_Trigger["/api/trigger-bot<br/>(Direct JWT Dispatcher)"]
         DirectEngine["⚡ Direct Service Account Engine<br/>(lib/googleChatDirect.ts)"]
@@ -177,7 +177,7 @@ The dashboard (`app/page.tsx`) provides two primary visualization modes:
 To overcome ephemeral filesystem resets in serverless environments (like Vercel lambdas):
 1. **Tier 1 (Repository Seed)**: `data/employees.json` provides the baseline seed list.
 2. **Tier 2 (Serverless Cache)**: `/tmp/employees.json` stores live runtime additions.
-3. **Tier 3 (Browser Auto-Rehydrate)**: The Dashboard automatically stores the team directory in browser `localStorage` (`bytepx_employees_cache`). When loading a fresh deployment, the dashboard compares local cache with server data and automatically performs a bulk rehydrate via `POST /api/employees`.
+3. **Tier 3 (Browser Auto-Rehydrate)**: The Dashboard automatically stores the team directory in browser `localStorage`. When loading a fresh deployment, the dashboard compares local cache with server data and automatically performs a bulk rehydrate via `POST /api/employees`.
 
 ---
 
@@ -197,7 +197,7 @@ To overcome ephemeral filesystem resets in serverless environments (like Vercel 
 ### Directory Structure
 
 ```text
-BytePx-StandupPulse/
+StandupPulse/
 ├── app/                                 # Next.js 14 App Router
 │   ├── api/                             # Serverless API Webhook Routes
 │   │   ├── chat-bot/route.ts            # Primary Google Chat Webhook (NLP & CardsV2)
@@ -242,8 +242,8 @@ BytePx-StandupPulse/
   {
     "action": "broadcast",
     "employees": [
-      { "name": "Tanmay", "email": "tanmay@bytepx.com" },
-      { "name": "Rudra", "email": "rudra@bytepx.com" }
+      { "name": "Alex", "email": "alex@company.com" },
+      { "name": "Sarah", "email": "sarah@company.com" }
     ]
   }
   ```
@@ -330,12 +330,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Step 2: Google Cloud Platform (GCP) Configuration
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a new project or select an existing one (e.g. `BytePx-Standup-Bot`).
+2. Create a new project or select an existing one (e.g. `Company-Standup-Bot`).
 3. Navigate to **APIs & Services ➔ Library**, search for **Google Chat API**, and click **Enable**.
 4. Navigate to **Google Chat API ➔ Configuration**:
-   - **App name**: `BytePx Standup Bot`
+   - **App name**: `Company Standup Bot`
    - **Avatar URL**: `https://cdn-icons-png.flaticon.com/512/4712/4712109.png`
-   - **Description**: `Official 1:1 Daily Standup Bot for BytePx`
+   - **Description**: `Official 1:1 Daily Standup Bot for Company`
    - **Functionality**:
      - Check ✅ **Receive 1:1 messages**
      - (Optional) Check ✅ **Join spaces and group conversations**
@@ -351,7 +351,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 The Google Apps Script acts as the 1:1 broadcast engine, sending direct messages to individual team members without group clutter:
 
-1. Open [Google Apps Script](https://script.google.com/) and create a **New Project** named `BytePx-1-1-Standup-Dispatcher`.
+1. Open [Google Apps Script](https://script.google.com/) and create a **New Project** named `Company-1-1-Standup-Dispatcher`.
 2. Replace the contents of `Code.gs` with the code in [`google-chat-bot/Code.gs`](google-chat-bot/Code.gs).
 3. Click on the left gear icon ⚙️ (**Project Settings**) and check **"Show 'appsscript.json' manifest file in editor"**.
 4. Open `appsscript.json` and ensure it includes the Chat authorization scopes:
@@ -371,7 +371,7 @@ The Google Apps Script acts as the 1:1 broadcast engine, sending direct messages
 5. Click **Deploy ➔ New Deployment**:
    - **Select type**: **Web app**
    - **Description**: `Production 1:1 Standup Dispatcher`
-   - **Execute as**: **Me** (`your-email@bytepx.com`)
+   - **Execute as**: **Me** (`your-email@company.com`)
    - **Who has access**: **Anyone**
 6. Click **Deploy**, review permissions, and copy the **Web App URL** (e.g. `https://script.google.com/macros/s/.../exec`).
 
@@ -392,7 +392,7 @@ The Google Apps Script acts as the 1:1 broadcast engine, sending direct messages
 1. Push your repository to GitHub:
    ```bash
    git add .
-   git commit -m "Configure BytePx StandupPulse Suite"
+   git commit -m "Configure StandupPulse Suite"
    git push origin main
    ```
 2. In the [Vercel Dashboard](https://vercel.com/new), click **Import** on your repository.
@@ -410,9 +410,9 @@ The Google Apps Script acts as the 1:1 broadcast engine, sending direct messages
 | Issue / Symptom | Root Cause | Resolution |
 | :--- | :--- | :--- |
 | **"Add-on is not responding (Error code: 3)"** | Google Chat API sent an event to an endpoint that did not return a valid HTTP 200 JSON CardsV2 response within 10 seconds. | Verify your Vercel endpoint is live. Ensure `/api/chat-bot` is returning valid `{ cardsV2: [...] }` JSON. |
-| **Added employees disappear after reload/deploy** | Vercel serverless `/tmp` resets between new deployments. | The dashboard includes automatic `localStorage` rehydration. Keep `bytepx_employees_cache` enabled in browser, or add core permanent members to `data/employees.json`. |
+| **Added employees disappear after reload/deploy** | Vercel serverless `/tmp` resets between new deployments. | The dashboard includes automatic `localStorage` rehydration. Keep local browser cache enabled, or add core permanent members to `data/employees.json`. |
 | **Employee message not parsing hours** | Employee typed non-standard notation. | The NLP parser supports `6h`, `6 hrs`, `7.5 hours`, etc. If omitted, standard `7.5h` is logged. You can edit or re-log anytime via dashboard manual entry. |
-| **"Cannot find space" in Apps Script** | Employee has not interacted with the bot yet. | Ask the employee to open Google Chat, click **+ New Chat**, search for **BytePx Standup Bot**, and click **Start Chat**. Once initiated, 1:1 broadcasts deliver instantly. |
+| **"Cannot find space" in Apps Script** | Employee has not interacted with the bot yet. | Ask the employee to open Google Chat, click **+ New Chat**, search for **Company Standup Bot**, and click **Start Chat**. Once initiated, 1:1 broadcasts deliver instantly. |
 
 ---
 
@@ -427,10 +427,10 @@ The Google Apps Script acts as the 1:1 broadcast engine, sending direct messages
 ## 👥 Contributors & Maintainers
 
 - **Rudra Sharma** — Lead Developer & Architect ([@RudraSharma3](https://github.com/RudraSharma3))
-- **BytePx Engineering Team** — Continuous feedback & design evolution.
+- **Company Engineering Team** — Continuous feedback & design evolution.
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by BytePx Team. Engineered for seamless daily engineering standups.</sub>
+  <sub>Built with ❤️ for Company. Engineered for seamless daily engineering standups.</sub>
 </div>

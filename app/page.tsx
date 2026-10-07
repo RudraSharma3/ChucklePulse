@@ -555,16 +555,6 @@ export default function StandupDashboard() {
             </button>
 
             <button
-              onClick={handleClearDatabase}
-              disabled={clearingDb || standups.length === 0}
-              title="Clear all recorded standup check-ins from database"
-              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {clearingDb ? <RefreshCw className="w-4 h-4 animate-spin text-rose-600 dark:text-rose-400" /> : <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />}
-              <span>Clear DB</span>
-            </button>
-
-            <button
               onClick={handleTriggerBot}
               disabled={triggering}
               className="px-4 py-2 text-xs md:text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
@@ -781,6 +771,14 @@ export default function StandupDashboard() {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-indigo-600 dark:text-indigo-400" : ""}`} />
             </button>
+            <button
+              onClick={handleClearDatabase}
+              disabled={clearingDb || standups.length === 0}
+              title="Clear all standup check-ins from database"
+              className="p-2 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {clearingDb ? <RefreshCw className="w-4 h-4 animate-spin text-rose-600" /> : <Trash2 className="w-4 h-4" />}
+            </button>
           </div>
         </div>
 
@@ -978,6 +976,16 @@ export default function StandupDashboard() {
                   className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" /> Export CSV
+                </button>
+
+                <button
+                  onClick={handleClearDatabase}
+                  disabled={clearingDb || standups.length === 0}
+                  title="Clear all recorded standup check-ins from database"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60 flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {clearingDb ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" /> : <Trash2 className="w-3.5 h-3.5 text-rose-500" />}
+                  <span>Clear DB</span>
                 </button>
               </div>
             </div>

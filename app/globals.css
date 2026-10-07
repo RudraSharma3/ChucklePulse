@@ -5,20 +5,20 @@
 @layer base {
   :root {
     --background: #f8fafc;
-    --foreground: #0f172a;
+    --foreground: #09090b;
     --card-bg: rgba(255, 255, 255, 0.95);
-    --card-border: rgba(226, 232, 240, 0.8);
+    --card-border: rgba(228, 228, 231, 0.8);
     --panel-bg: rgba(255, 255, 255, 0.85);
-    --panel-border: rgba(226, 232, 240, 0.9);
+    --panel-border: rgba(228, 228, 231, 0.9);
   }
 
   .dark {
-    --background: #090d16;
-    --foreground: #f8fafc;
-    --card-bg: rgba(17, 24, 39, 0.6);
+    --background: #000000;
+    --foreground: #f4f4f5;
+    --card-bg: rgba(12, 12, 12, 0.95);
     --card-border: rgba(255, 255, 255, 0.08);
-    --panel-bg: rgba(15, 23, 42, 0.75);
-    --panel-border: rgba(255, 255, 255, 0.08);
+    --panel-bg: rgba(18, 18, 18, 0.95);
+    --panel-border: rgba(255, 255, 255, 0.1);
   }
 }
 
@@ -43,5 +43,8 @@ body {
   border-radius: 4px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #27272a;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }

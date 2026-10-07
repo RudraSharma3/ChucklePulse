@@ -491,19 +491,19 @@ export default function StandupDashboard() {
   };
 
   return (
-    <div className={`${theme === "dark" ? "dark" : ""} min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 transition-colors duration-200`}>
+    <div className={`${theme === "dark" ? "dark" : ""} min-h-screen bg-slate-50 dark:bg-black text-slate-900 dark:text-zinc-100 transition-colors duration-200`}>
       <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-6">
         
         {/* Top Header */}
-        <header className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-2xl transition-all">
+        <header className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-2xl transition-all">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-black shrink-0">
               <Bot className="w-7 h-7" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  BytePx <span className="text-indigo-600 dark:text-indigo-400 font-semibold">StandupPulse</span>
+                  BytePx <span className="text-emerald-600 dark:text-emerald-400 font-semibold">StandupPulse</span>
                 </h1>
                 <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span> Google Chat Bot Live
@@ -511,13 +511,13 @@ export default function StandupDashboard() {
                 <button
                   onClick={() => setActiveTab("settings")}
                   title="Click to customize Standup Time & Auto-Nudge Interval"
-                  className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 flex items-center gap-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all cursor-pointer"
+                  className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 flex items-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all cursor-pointer"
                 >
-                  <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                  <Clock className="w-3.5 h-3.5 text-emerald-500" />
                   <span>{settings?.standupTime || "10:30"} AM Daily • {settings?.autoNudgeEnabled !== false ? `${settings?.nudgeIntervalMinutes || 45}m Nudge` : "Nudge Off"}</span>
                 </button>
               </div>
-              <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
+              <p className="text-xs md:text-sm text-slate-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2">
                 <Calendar className="w-3.5 h-3.5" /> {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} • <Clock className="w-3.5 h-3.5 ml-1" /> {currentTime || "Live"}
               </p>
 
@@ -530,10 +530,10 @@ export default function StandupDashboard() {
             <button
               onClick={toggleTheme}
               title={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 transition-all flex items-center justify-center shadow-sm cursor-pointer group"
+              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center justify-center shadow-sm cursor-pointer group"
             >
               {theme === "light" ? (
-                <Moon className="w-5 h-5 text-indigo-600 group-hover:-rotate-12 transition-transform" />
+                <Moon className="w-5 h-5 text-emerald-600 group-hover:-rotate-12 transition-transform" />
               ) : (
                 <Sun className="w-5 h-5 text-amber-400 group-hover:rotate-45 transition-transform" />
               )}
@@ -541,25 +541,25 @@ export default function StandupDashboard() {
 
             <button
               onClick={() => setShowManualStandup(true)}
-              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
             >
-              <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Log Check-in
+              <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Log Check-in
             </button>
 
             <button
               onClick={handleCopySummary}
-              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+              {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
               {copied ? "Copied!" : "Copy Briefing"}
             </button>
 
             <button
               onClick={handleTriggerBot}
               disabled={triggering}
-              className="px-4 py-2 text-xs md:text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-md shadow-indigo-600/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 text-xs md:text-sm font-bold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black shadow-md shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
-              {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {triggering ? <RefreshCw className="w-4 h-4 animate-spin text-black" /> : <Send className="w-4 h-4 text-black" />}
               {triggering ? "Sending..." : "Send Bot"}
             </button>
           </div>
@@ -567,12 +567,12 @@ export default function StandupDashboard() {
 
         {/* Trigger Notification Alert */}
         {triggerMsg && (
-          <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200 text-sm flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-sm flex items-center justify-between shadow-sm animate-fade-in">
             <div className="flex items-center gap-2.5">
-              <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>{triggerMsg}</span>
             </div>
-            <button onClick={() => setTriggerMsg(null)} className="text-indigo-600 dark:text-indigo-400 hover:underline text-xs font-semibold cursor-pointer">Dismiss</button>
+            <button onClick={() => setTriggerMsg(null)} className="text-emerald-600 dark:text-emerald-400 hover:underline text-xs font-semibold cursor-pointer">Dismiss</button>
           </div>
         )}
 
@@ -581,65 +581,65 @@ export default function StandupDashboard() {
           {/* Metric 1: Check-in Progress -> Click to view Attendance Tab */}
           <div
             onClick={() => setActiveTab("attendance")}
-            className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-md cursor-pointer group"
+            className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm relative overflow-hidden transition-all hover:border-emerald-400 dark:hover:border-emerald-500/50 hover:shadow-md cursor-pointer group"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Team Check-ins</span>
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">Team Check-ins</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-black transition-colors">
                 <Users className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{metrics.checkinCount}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">/ {metrics.totalEmployees} members</span>
+              <span className="text-xs text-slate-500 dark:text-zinc-400">/ {metrics.totalEmployees} members</span>
             </div>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 rounded-full mt-3 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-500"
+                className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(metrics.checkinRate, 100)}%` }}
               ></div>
             </div>
             <div className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">{metrics.checkinRate}% completion</span>
-              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold group-hover:underline flex items-center gap-0.5">Roster <ChevronRight className="w-3 h-3" /></span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold group-hover:underline flex items-center gap-0.5">Roster <ChevronRight className="w-3 h-3" /></span>
             </div>
           </div>
 
           {/* Metric 2: Active Projects -> Click to view Projects Tab */}
           <div
             onClick={() => { setActiveTab("projects"); setOnlyBlockers(false); setSelectedProject("all"); }}
-            className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all hover:border-blue-400 dark:hover:border-blue-500/50 hover:shadow-md cursor-pointer group"
+            className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm relative overflow-hidden transition-all hover:border-teal-400 dark:hover:border-teal-500/50 hover:shadow-md cursor-pointer group"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Active Initiatives</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">Active Initiatives</span>
+              <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center group-hover:bg-teal-500 group-hover:text-black transition-colors">
                 <FolderKanban className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{metrics.uniqueProjects}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">initiatives live</span>
+              <span className="text-xs text-slate-500 dark:text-zinc-400">initiatives live</span>
             </div>
             <div className="flex items-center justify-between mt-4">
-              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">Distributed focus</span>
-              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold group-hover:underline flex items-center gap-0.5">Matrix <ChevronRight className="w-3 h-3" /></span>
+              <span className="text-[11px] text-teal-600 dark:text-teal-400 font-medium">Distributed focus</span>
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold group-hover:underline flex items-center gap-0.5">Matrix <ChevronRight className="w-3 h-3" /></span>
             </div>
           </div>
 
           {/* Metric 3: Total Hours -> Click to view Tasks Workspace */}
           <div
             onClick={() => { setActiveTab("tasks"); setOnlyBlockers(false); }}
-            className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all hover:border-amber-400 dark:hover:border-amber-500/50 hover:shadow-md cursor-pointer group"
+            className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm relative overflow-hidden transition-all hover:border-amber-400 dark:hover:border-amber-500/50 hover:shadow-md cursor-pointer group"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">Hours Planned</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">Hours Planned</span>
               <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
                 <Clock className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{metrics.totalHours}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">hours logged</span>
+              <span className="text-xs text-slate-500 dark:text-zinc-400">hours logged</span>
             </div>
             <div className="flex items-center justify-between mt-4">
               <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Avg {metrics.checkinCount > 0 ? (metrics.totalHours / metrics.checkinCount).toFixed(1) : 0}h / person</span>
@@ -656,11 +656,11 @@ export default function StandupDashboard() {
             className={`rounded-2xl p-5 border shadow-sm relative overflow-hidden transition-all cursor-pointer group ${
               onlyBlockers
                 ? "bg-rose-50 dark:bg-rose-950/40 border-rose-500 ring-2 ring-rose-500/30"
-                : "bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-rose-400 dark:hover:border-rose-500/50 hover:shadow-md"
+                : "bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-zinc-800 hover:border-rose-400 dark:hover:border-rose-500/50 hover:shadow-md"
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className={`text-xs font-semibold uppercase tracking-wider ${metrics.activeBlockers > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"}`}>
+              <span className={`text-xs font-semibold uppercase tracking-wider ${metrics.activeBlockers > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-zinc-400"}`}>
                 {onlyBlockers ? "Filtering Blockers" : "Blockers"}
               </span>
               <div className={`w-8 h-8 rounded-lg ${metrics.activeBlockers > 0 ? "bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400" : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"} flex items-center justify-center transition-transform group-hover:scale-110`}>
@@ -669,7 +669,7 @@ export default function StandupDashboard() {
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{metrics.activeBlockers}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">unresolved</span>
+              <span className="text-xs text-slate-500 dark:text-zinc-400">unresolved</span>
             </div>
             <div className="flex items-center justify-between mt-4">
               <span className={`text-[11px] font-medium ${metrics.activeBlockers > 0 ? "text-rose-600 dark:text-rose-400 font-semibold" : "text-emerald-600 dark:text-emerald-400"}`}>
@@ -696,12 +696,12 @@ export default function StandupDashboard() {
         )}
 
         {/* 5 PROFESSIONAL MULTI-SPACE TABS */}
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap gap-4">
-          <nav className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-x-auto max-w-full">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3 flex-wrap gap-4">
+          <nav className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-200/70 dark:bg-[#111111] border border-slate-200 dark:border-zinc-800 overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveTab("projects")}
               className={`px-3.5 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "projects" ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                activeTab === "projects" ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black font-bold shadow-sm dark:shadow-emerald-500/20" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <FolderKanban className="w-4 h-4" /> Initiatives Hub ({projectGroups.length})
@@ -710,7 +710,7 @@ export default function StandupDashboard() {
             <button
               onClick={() => setActiveTab("tasks")}
               className={`px-3.5 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "tasks" ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                activeTab === "tasks" ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black font-bold shadow-sm dark:shadow-emerald-500/20" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <ListTodo className="w-4 h-4" /> Tasks & Worklogs
@@ -719,7 +719,7 @@ export default function StandupDashboard() {
             <button
               onClick={() => setActiveTab("attendance")}
               className={`px-3.5 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "attendance" ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                activeTab === "attendance" ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black font-bold shadow-sm dark:shadow-emerald-500/20" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <Users className="w-4 h-4" /> Team Attendance ({metrics.checkinCount}/{metrics.totalEmployees})
@@ -728,7 +728,7 @@ export default function StandupDashboard() {
             <button
               onClick={() => setActiveTab("feed")}
               className={`px-3.5 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "feed" ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                activeTab === "feed" ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black font-bold shadow-sm dark:shadow-emerald-500/20" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <Layers className="w-4 h-4" /> Check-in Feed
@@ -737,7 +737,7 @@ export default function StandupDashboard() {
             <button
               onClick={() => setActiveTab("settings")}
               className={`px-3.5 py-2 text-xs md:text-sm font-semibold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-                activeTab === "settings" ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                activeTab === "settings" ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black font-bold shadow-sm dark:shadow-emerald-500/20" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <Bot className="w-4 h-4" /> Bot & Settings
@@ -747,35 +747,35 @@ export default function StandupDashboard() {
           {/* Global Search & Export Buttons */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search project, task, member..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-sm transition-all"
+                className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-white dark:bg-[#111111] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-emerald-500 shadow-sm transition-all"
               />
             </div>
 
             <button
               onClick={handleExportCSV}
               title="Export standups to CSV spreadsheet"
-              className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-all cursor-pointer"
+              className="p-2 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-[#111111] hover:bg-slate-100 dark:hover:bg-[#181818] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm transition-all cursor-pointer"
             >
               <Download className="w-4 h-4" />
             </button>
             <button
               onClick={fetchData}
               title="Refresh dashboard"
-              className="p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-all cursor-pointer"
+              className="p-2 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-[#111111] hover:bg-slate-100 dark:hover:bg-[#181818] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm transition-all cursor-pointer"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-indigo-600 dark:text-indigo-400" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-emerald-600 dark:text-emerald-400" : ""}`} />
             </button>
             <button
               onClick={handleClearDatabase}
               disabled={clearingDb || standups.length === 0}
               title="Clear all standup check-ins from database"
-              className="p-2 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              className="p-2 text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 bg-white dark:bg-[#111111] hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
             >
               {clearingDb ? <RefreshCw className="w-4 h-4 animate-spin text-rose-600" /> : <Trash2 className="w-4 h-4" />}
             </button>
@@ -789,11 +789,11 @@ export default function StandupDashboard() {
           <div className="space-y-6 animate-fade-in">
             {projectOptions.length > 0 && (
               <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-                <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px] mr-1">Filter:</span>
+                <span className="text-slate-500 dark:text-zinc-400 font-semibold uppercase tracking-wider text-[10px] mr-1">Filter:</span>
                 <button
                   onClick={() => setSelectedProject("all")}
                   className={`px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
-                    selectedProject === "all" ? "bg-indigo-600 text-white border-indigo-500" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white shadow-sm"
+                    selectedProject === "all" ? "bg-emerald-500 text-black border-emerald-400 font-bold" : "bg-white dark:bg-[#111111] text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:text-slate-900 dark:hover:text-white shadow-sm"
                   }`}
                 >
                   All Initiatives ({projectGroups.length})
@@ -803,7 +803,7 @@ export default function StandupDashboard() {
                     key={p}
                     onClick={() => setSelectedProject(p)}
                     className={`px-3 py-1.5 rounded-lg border transition-all whitespace-nowrap cursor-pointer ${
-                      selectedProject === p ? "bg-indigo-600 text-white border-indigo-500" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white shadow-sm"
+                      selectedProject === p ? "bg-emerald-500 text-black border-emerald-400 font-bold" : "bg-white dark:bg-[#111111] text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:text-slate-900 dark:hover:text-white shadow-sm"
                     }`}
                   >
                     {p}
@@ -813,13 +813,13 @@ export default function StandupDashboard() {
             )}
 
             {projectGroups.length === 0 ? (
-              <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-12 text-center space-y-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-slate-800/80 mx-auto flex items-center justify-center text-indigo-600 dark:text-slate-400">
+              <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-12 text-center space-y-4 border border-slate-200 dark:border-zinc-800 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-[#141414] mx-auto flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-zinc-800">
                   <FolderKanban className="w-8 h-8" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No Standups Logged Today</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
+                  <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-md mx-auto mt-1">
                     Click <b>"Send Standup to Team"</b> to ping employees on Google Chat, or click <b>"Log Check-in"</b> to record an update.
                   </p>
                 </div>
@@ -827,15 +827,15 @@ export default function StandupDashboard() {
                   <button
                     onClick={handleTriggerBot}
                     disabled={triggering}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold hover:opacity-90 transition-all inline-flex items-center gap-2 shadow-md shadow-indigo-600/20 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-black text-sm font-bold hover:opacity-90 transition-all inline-flex items-center gap-2 shadow-md shadow-emerald-500/20 cursor-pointer"
                   >
-                    <Send className="w-4 h-4" /> Send Standup to Team
+                    <Send className="w-4 h-4 text-black" /> Send Standup to Team
                   </button>
                   <button
                     onClick={() => setShowManualStandup(true)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-medium transition-all inline-flex items-center gap-2 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 text-sm font-medium border border-slate-200 dark:border-zinc-800 transition-all inline-flex items-center gap-2 cursor-pointer"
                   >
-                    <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Log Check-in Manually
+                    <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Log Check-in Manually
                   </button>
                 </div>
               </div>
@@ -845,27 +845,27 @@ export default function StandupDashboard() {
                   <div
                     key={group.projectName}
                     onClick={() => setSelectedProjectModal(group)}
-                    className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl flex flex-col justify-between transition-all hover:border-indigo-500 hover:shadow-lg dark:hover:border-indigo-500/60 hover:-translate-y-0.5 cursor-pointer group"
+                    className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-xl flex flex-col justify-between transition-all hover:border-emerald-500 hover:shadow-lg dark:hover:border-emerald-500/60 hover:-translate-y-0.5 cursor-pointer group"
                   >
                     <div className="space-y-4">
                       {/* Project Header */}
-                      <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800/60 pb-3.5">
+                      <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-zinc-800/60 pb-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                          <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:bg-emerald-500 group-hover:text-black transition-all">
                             <Briefcase className="w-5 h-5" />
                           </div>
                           <div>
-                            <h3 className="font-bold text-base text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-all leading-tight flex items-center gap-1.5">
-                              {group.projectName} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all text-indigo-600 dark:text-indigo-400" />
+                            <h3 className="font-bold text-base text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-all leading-tight flex items-center gap-1.5">
+                              {group.projectName} <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all text-emerald-600 dark:text-emerald-400" />
                             </h3>
-                            <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 inline-block">
+                            <span className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5 inline-block">
                               {group.members.length} {group.members.length === 1 ? "contributor" : "contributors"}
                             </span>
                           </div>
                         </div>
 
                         <div className="text-right">
-                          <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-slate-700/50 text-xs font-bold inline-block">
+                          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-[#161616] text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-zinc-700/50 text-xs font-bold inline-block">
                             {group.totalHours} hrs
                           </span>
                         </div>
@@ -874,25 +874,25 @@ export default function StandupDashboard() {
                       {/* Member Contributions in Clean Cards */}
                       <div className="space-y-3">
                         {group.members.map((m, idx) => (
-                          <div key={idx} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/50 space-y-2">
+                          <div key={idx} className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200/80 dark:border-zinc-800/60 space-y-2">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span> {m.name}
                               </span>
-                              <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px] font-medium">{m.hours}h • {m.time}</span>
+                              <span className="text-slate-500 dark:text-zinc-400 font-mono text-[11px] font-medium">{m.hours}h • {m.time}</span>
                             </div>
 
                             {/* Itemized Tasks */}
-                            <div className="space-y-1 pl-3.5 border-l-2 border-indigo-500/40">
+                            <div className="space-y-1 pl-3.5 border-l-2 border-emerald-500/40">
                               {m.taskList && m.taskList.length > 0 ? (
                                 m.taskList.map((taskItem, tIdx) => (
-                                  <div key={tIdx} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed flex items-start gap-1.5">
-                                    <span className="text-indigo-500 font-bold">•</span>
+                                  <div key={tIdx} className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed flex items-start gap-1.5">
+                                    <span className="text-emerald-500 font-bold">•</span>
                                     <span>{taskItem}</span>
                                   </div>
                                 ))
                               ) : (
-                                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{m.tasks}</p>
+                                <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed">{m.tasks}</p>
                               )}
                             </div>
 
@@ -908,11 +908,11 @@ export default function StandupDashboard() {
                     </div>
 
                     {/* Card Footer */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs text-slate-500">
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800/60 flex items-center justify-between text-xs text-slate-500">
                       <span className={group.blockerCount > 0 ? "text-rose-600 font-semibold" : ""}>
                         {group.blockerCount > 0 ? `⚠️ ${group.blockerCount} blocker reported` : "🟢 All clear"}
                       </span>
-                      <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 group-hover:underline flex items-center gap-1">
+                      <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 group-hover:underline flex items-center gap-1">
                         View Project Breakdown <ArrowRight className="w-3 h-3" />
                       </span>
                     </div>
@@ -929,25 +929,25 @@ export default function StandupDashboard() {
         {activeTab === "tasks" && (
           <div className="space-y-6 animate-fade-in">
             {/* Header with Table Controls & View Mode Toggle */}
-            <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center justify-between flex-wrap gap-4 bg-white dark:bg-[#0c0c0c] p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm">
               <div>
                 <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <TableIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> Daily Standup Responses Table
+                  <TableIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Daily Standup Responses Table
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   Live itemized task breakdowns, project allocations, hours, and blockers submitted by team members.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
                 {/* View Mode Toggle */}
-                <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60">
+                <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-[#161616] border border-slate-200 dark:border-zinc-700/60">
                   <button
                     onClick={() => setTaskViewMode("table")}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                       taskViewMode === "table"
-                        ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black font-bold shadow-sm"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     <TableIcon className="w-3.5 h-3.5" /> Table View
@@ -956,8 +956,8 @@ export default function StandupDashboard() {
                     onClick={() => setTaskViewMode("cards")}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                       taskViewMode === "cards"
-                        ? "bg-white dark:bg-indigo-600 text-indigo-700 dark:text-white shadow-sm"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black font-bold shadow-sm"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" /> Grid Cards
@@ -966,14 +966,14 @@ export default function StandupDashboard() {
 
                 <button
                   onClick={handleCopySummary}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/60 flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-[#161616] hover:bg-slate-200 dark:hover:bg-[#222222] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700/60 flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Copy className="w-3.5 h-3.5" /> {copied ? "Copied!" : "Copy Summary"}
                 </button>
 
                 <button
                   onClick={handleExportCSV}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" /> Export CSV
                 </button>
@@ -982,7 +982,7 @@ export default function StandupDashboard() {
                   onClick={handleClearDatabase}
                   disabled={clearingDb || standups.length === 0}
                   title="Clear all recorded standup check-ins from database"
-                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60 flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-[#161616] hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700/60 flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {clearingDb ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" /> : <Trash2 className="w-3.5 h-3.5 text-rose-500" />}
                   <span>Clear DB</span>
@@ -991,31 +991,31 @@ export default function StandupDashboard() {
             </div>
 
             {filteredStandups.length === 0 ? (
-              <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-12 text-center space-y-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-slate-800/80 mx-auto flex items-center justify-center text-indigo-600 dark:text-slate-400">
+              <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-12 text-center space-y-4 border border-slate-200 dark:border-zinc-800 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-[#141414] mx-auto flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-zinc-800">
                   <ListTodo className="w-8 h-8" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No Standup Responses Recorded Yet</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
                   When employees reply to the Google Chat Bot, their updates will populate this live responses table in real time.
                 </p>
                 <button
                   onClick={handleTriggerBot}
                   disabled={triggering}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <Send className="w-3.5 h-3.5" /> Send Bot to Team
+                  <Send className="w-3.5 h-3.5 text-black" /> Send Bot to Team
                 </button>
               </div>
             ) : taskViewMode === "table" ? (
               /* ========================================================== */
               /* PROFESSIONAL STANDUP RESPONSES TABLE                       */
               /* ========================================================== */
-              <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-950/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/90 dark:bg-[#111111] text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                         <th className="py-3.5 px-4 w-12 text-center">#</th>
                         <th className="py-3.5 px-4 min-w-[200px]">Employee</th>
                         <th className="py-3.5 px-4 min-w-[160px]">Project / Initiative</th>
@@ -1026,7 +1026,7 @@ export default function StandupDashboard() {
                         <th className="py-3.5 px-4 text-right w-24">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 text-xs">
                       {filteredStandups.map((s, index) => {
                         const taskItems = s.taskList && s.taskList.length > 0 ? s.taskList : extractStructuredTasks(s.tasks);
                         const isBlocked = s.blocker && s.blocker !== "None";
@@ -1034,37 +1034,37 @@ export default function StandupDashboard() {
                         return (
                           <tr
                             key={s.id}
-                            className="hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition-colors group"
+                            className="hover:bg-emerald-50/30 dark:hover:bg-[#151515] transition-colors group"
                           >
                             {/* 1. Index */}
-                            <td className="py-4 px-4 text-center font-mono text-slate-400 font-medium">
+                            <td className="py-4 px-4 text-center font-mono text-slate-400 dark:text-zinc-500 font-medium">
                               {index + 1}
                             </td>
 
                             {/* 2. Employee Info */}
                             <td className="py-4 px-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-sm shadow-indigo-500/20">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-black font-bold flex items-center justify-center text-xs shrink-0 shadow-sm shadow-emerald-500/20">
                                   {s.name.charAt(0)}
                                 </div>
                                 <div className="min-w-0">
-                                  <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                  <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                                     {s.name}
                                   </h4>
                                   <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium border border-slate-200/60 dark:border-slate-700/50">
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#161616] text-slate-600 dark:text-zinc-400 font-medium border border-slate-200/60 dark:border-zinc-700/50">
                                       {s.dept || "Engineering"}
                                     </span>
                                   </div>
-                                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{s.email}</p>
+                                  <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate mt-0.5">{s.email}</p>
                                 </div>
                               </div>
                             </td>
 
                             {/* 3. Project Initiative */}
                             <td className="py-4 px-4">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold text-xs border border-indigo-100 dark:border-indigo-500/20">
-                                <Briefcase className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold text-xs border border-emerald-100 dark:border-emerald-500/20">
+                                <Briefcase className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                 <span className="truncate max-w-[150px]">{s.project || "Daily Tasks"}</span>
                               </span>
                             </td>
@@ -1075,12 +1075,12 @@ export default function StandupDashboard() {
                                 {taskItems.map((taskText, tIdx) => (
                                   <div
                                     key={tIdx}
-                                    className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-800/80 flex items-start gap-2 group/task hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all"
+                                    className="p-2 rounded-lg bg-slate-50 dark:bg-[#141414] border border-slate-200/70 dark:border-zinc-800/80 flex items-start gap-2 group/task hover:border-emerald-300 dark:hover:border-emerald-500/30 transition-all"
                                   >
                                     <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] font-mono shrink-0 border border-emerald-500/20">
                                       Task {tIdx + 1}
                                     </span>
-                                    <span className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
+                                    <span className="text-xs text-slate-800 dark:text-zinc-200 leading-relaxed">
                                       {taskText}
                                     </span>
                                   </div>
@@ -1097,12 +1097,12 @@ export default function StandupDashboard() {
                                       ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
                                       : s.hours > 0
                                       ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
-                                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                      : "bg-slate-100 dark:bg-[#161616] text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
                                   }`}>
                                     {s.hours} hrs
                                   </span>
                                 </div>
-                                <span className="text-[10px] text-slate-400 block">
+                                <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">
                                   {s.hours >= 8 ? "Full day (8h)" : `${Math.round((s.hours / 8) * 100)}% shift`}
                                 </span>
                               </div>
@@ -1117,7 +1117,7 @@ export default function StandupDashboard() {
                                 </div>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-medium border border-emerald-200/60 dark:border-emerald-500/20">
-                                  <Check className="w-3 h-3 text-emerald-600" /> None
+                                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> None
                                 </span>
                               )}
                             </td>
@@ -1125,10 +1125,10 @@ export default function StandupDashboard() {
                             {/* 7. Time & Source */}
                             <td className="py-4 px-4">
                               <div className="space-y-0.5">
-                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 font-mono block">
+                                <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300 font-mono block">
                                   {s.time}
                                 </span>
-                                <span className="text-[10px] text-slate-400 block truncate">
+                                <span className="text-[10px] text-slate-400 dark:text-zinc-500 block truncate">
                                   {s.source || "Google Chat 1:1"}
                                 </span>
                               </div>
@@ -1143,7 +1143,7 @@ export default function StandupDashboard() {
                                   alert(`Copied ${s.name}'s standup update!`);
                                 }}
                                 title="Copy standup entry"
-                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-100 dark:bg-slate-800 dark:hover:bg-indigo-900/40 text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 transition-colors inline-flex items-center justify-center cursor-pointer"
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 dark:bg-[#181818] dark:hover:bg-emerald-950/40 text-slate-600 hover:text-emerald-600 dark:text-zinc-400 dark:hover:text-emerald-300 transition-colors inline-flex items-center justify-center cursor-pointer"
                               >
                                 <Copy className="w-3.5 h-3.5" />
                               </button>
@@ -1156,10 +1156,10 @@ export default function StandupDashboard() {
                 </div>
 
                 {/* Table Footer Summary */}
-                <div className="py-3 px-4 bg-slate-50/90 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-2">
+                <div className="py-3 px-4 bg-slate-50/90 dark:bg-[#111111] border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 flex-wrap gap-2">
                   <span>Showing <b>{filteredStandups.length}</b> total standup entries</span>
                   <div className="flex items-center gap-4">
-                    <span>Total Hours: <b className="text-indigo-600 dark:text-indigo-400 font-mono">{metrics.totalHours} hrs</b></span>
+                    <span>Total Hours: <b className="text-emerald-600 dark:text-emerald-400 font-mono">{metrics.totalHours} hrs</b></span>
                     <span>Blockers: <b className={metrics.activeBlockers > 0 ? "text-rose-600 font-mono" : "text-emerald-600 font-mono"}>{metrics.activeBlockers} active</b></span>
                   </div>
                 </div>
@@ -1176,23 +1176,23 @@ export default function StandupDashboard() {
                   return (
                     <div
                       key={s.id}
-                      className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
+                      className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
                     >
                       <div className="space-y-3.5">
                         {/* Member Header Bar */}
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-600 text-white font-bold flex items-center justify-center text-sm shadow-md shadow-indigo-500/20">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-black font-bold flex items-center justify-center text-sm shadow-md shadow-emerald-500/20">
                               {s.name.charAt(0)}
                             </div>
                             <div>
                               <h4 className="font-bold text-sm text-slate-900 dark:text-white">{s.name}</h4>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">{s.dept || "Engineering"} • {s.email}</p>
+                              <p className="text-xs text-slate-500 dark:text-zinc-400">{s.dept || "Engineering"} • {s.email}</p>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-1.5">
-                            <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-500/20 font-bold text-xs">
+                            <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-500/20 font-bold text-xs">
                               {s.hours} hrs
                             </span>
                           </div>
@@ -1200,16 +1200,16 @@ export default function StandupDashboard() {
 
                         {/* Project Initiative Badge */}
                         <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700/60">
-                            <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
+                          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#161616] text-slate-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-zinc-700/60">
+                            <Briefcase className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             {s.project || "Daily Tasks"}
                           </span>
-                          <span className="text-[11px] text-slate-400 font-mono">{s.time} via {s.source}</span>
+                          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">{s.time} via {s.source}</span>
                         </div>
 
                         {/* Structured Itemized Task Workspace */}
                         <div className="space-y-2 pt-1">
-                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                          <span className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block">
                             Assigned Tasks ({taskItems.length}):
                           </span>
 
@@ -1217,12 +1217,12 @@ export default function StandupDashboard() {
                             {taskItems.map((taskText, idx) => (
                               <div
                                 key={idx}
-                                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 flex items-start gap-2.5 group/item hover:border-indigo-400 dark:hover:border-indigo-500/40 transition-all"
+                                className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200/80 dark:border-zinc-800 flex items-start gap-2.5 group/item hover:border-emerald-400 dark:hover:border-emerald-500/40 transition-all"
                               >
-                                <div className="w-4 h-4 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                                <div className="w-4 h-4 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                                   <Check className="w-3 h-3" />
                                 </div>
-                                <span className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed flex-1">
+                                <span className="text-xs text-slate-800 dark:text-zinc-200 leading-relaxed flex-1">
                                   {taskText}
                                 </span>
                               </div>
@@ -1241,14 +1241,14 @@ export default function StandupDashboard() {
                         )}
                       </div>
 
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+                      <div className="pt-3 border-t border-slate-100 dark:border-zinc-800/60 flex items-center justify-between text-xs text-slate-400 dark:text-zinc-500">
                         <span className="font-mono text-[11px]">{s.date}</span>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(`• ${s.name} (${s.project}): ${s.tasks}`);
                             alert("Copied task log!");
                           }}
-                          className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                          className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <Copy className="w-3 h-3" /> Copy Log
                         </button>
@@ -1269,9 +1269,9 @@ export default function StandupDashboard() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Users className="w-5 h-5 text-indigo-600" /> Daily Standup Attendance & Directory
+                  <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Daily Standup Attendance & Directory
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
                   Track who has checked in today vs pending responses in real-time.
                 </p>
               </div>
@@ -1279,9 +1279,9 @@ export default function StandupDashboard() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowAddEmp(true)}
-                  className="px-3.5 py-2 text-xs md:text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all flex items-center gap-2 shadow-md shadow-indigo-600/25 cursor-pointer"
+                  className="px-3.5 py-2 text-xs md:text-sm font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black transition-all flex items-center gap-2 shadow-md shadow-emerald-500/20 cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" /> Add Team Member
+                  <Plus className="w-4 h-4 text-black" /> Add Team Member
                 </button>
               </div>
             </div>
@@ -1289,10 +1289,10 @@ export default function StandupDashboard() {
             {/* 2 Roster Columns: Checked In vs Pending */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Column 1: Checked In Members */}
-              <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                       <UserCheck className="w-4 h-4" />
                     </div>
                     <h3 className="font-bold text-sm text-slate-900 dark:text-white">Checked In Today ({checkedInEmployees.length})</h3>
@@ -1303,26 +1303,26 @@ export default function StandupDashboard() {
                 </div>
 
                 {checkedInEmployees.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center">No employee check-ins recorded yet today.</p>
+                  <p className="text-xs text-slate-400 dark:text-zinc-500 py-6 text-center">No employee check-ins recorded yet today.</p>
                 ) : (
                   <div className="space-y-3">
                     {checkedInEmployees.map(emp => {
                       const empStandup = standups.find(s => s.email.toLowerCase() === emp.email.toLowerCase());
                       return (
-                        <div key={emp.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+                        <div key={emp.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold flex items-center justify-center text-sm border border-emerald-500/20">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center text-sm border border-emerald-500/20">
                               {emp.name.charAt(0)}
                             </div>
                             <div>
                               <h4 className="font-bold text-xs text-slate-900 dark:text-white">{emp.name}</h4>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400">{emp.role} • {emp.dept}</p>
+                              <p className="text-[11px] text-slate-500 dark:text-zinc-400">{emp.role} • {emp.dept}</p>
                             </div>
                           </div>
 
                           <div className="text-right">
-                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono block">{empStandup?.hours || 0}h logged</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{empStandup?.time}</span>
+                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono block">{empStandup?.hours || 0}h logged</span>
+                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">{empStandup?.time}</span>
                           </div>
                         </div>
                       );
@@ -1332,8 +1332,8 @@ export default function StandupDashboard() {
               </div>
 
               {/* Column 2: Pending Members */}
-              <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 flex items-center justify-center">
                       <UserX className="w-4 h-4" />
@@ -1358,14 +1358,14 @@ export default function StandupDashboard() {
                 ) : (
                   <div className="space-y-3">
                     {pendingEmployees.map(emp => (
-                      <div key={emp.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+                      <div key={emp.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 font-bold flex items-center justify-center text-sm border border-amber-500/20">
                             {emp.name.charAt(0)}
                           </div>
                           <div>
                             <h4 className="font-bold text-xs text-slate-900 dark:text-white">{emp.name}</h4>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">{emp.email}</p>
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400">{emp.email}</p>
                           </div>
                         </div>
 
@@ -1394,10 +1394,10 @@ export default function StandupDashboard() {
         {/* SPACE 4: CHECK-IN FEED TABLE                                         */}
         {/* ==================================================================== */}
         {activeTab === "feed" && (
-          <div className="bg-white dark:bg-slate-900/80 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl animate-fade-in">
+          <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-xl animate-fade-in">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs md:text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-200 dark:border-slate-800">
+                <thead className="bg-slate-50 dark:bg-[#111111] text-slate-500 dark:text-zinc-400 uppercase tracking-wider text-[11px] border-b border-slate-200 dark:border-zinc-800">
                   <tr>
                     <th className="p-4">Employee</th>
                     <th className="p-4">Project / Initiative</th>
@@ -1407,30 +1407,30 @@ export default function StandupDashboard() {
                     <th className="p-4">Logged At</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
+                <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 text-slate-700 dark:text-zinc-300">
                   {filteredStandups.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 dark:text-slate-500">
+                      <td colSpan={6} className="p-8 text-center text-slate-400 dark:text-zinc-500">
                         No check-ins recorded yet today.
                       </td>
                     </tr>
                   ) : (
                     filteredStandups.map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all">
+                      <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-[#151515] transition-all">
                         <td className="p-4">
                           <div className="font-semibold text-slate-900 dark:text-white">{s.name}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">{s.email}</div>
+                          <div className="text-xs text-slate-500 dark:text-zinc-400">{s.email}</div>
                         </td>
                         <td className="p-4">
-                          <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-500/20 font-semibold text-xs inline-block">
+                          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-500/20 font-semibold text-xs inline-block">
                             {s.project || "General Tasks"}
                           </span>
                         </td>
                         <td className="p-4 max-w-md">
-                          <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed line-clamp-3">{s.tasks}</p>
+                          <p className="text-xs text-slate-800 dark:text-zinc-200 leading-relaxed line-clamp-3">{s.tasks}</p>
                         </td>
                         <td className="p-4">
-                          <span className="font-mono font-bold text-slate-900 dark:text-slate-200">{s.hours} hrs</span>
+                          <span className="font-mono font-bold text-slate-900 dark:text-zinc-200">{s.hours} hrs</span>
                         </td>
                         <td className="p-4">
                           {s.blocker === "None" ? (
@@ -1443,8 +1443,8 @@ export default function StandupDashboard() {
                             </span>
                           )}
                         </td>
-                        <td className="p-4 text-xs text-slate-500 dark:text-slate-400 font-mono">
-                          {s.time} • <span className="text-slate-400">{s.source}</span>
+                        <td className="p-4 text-xs text-slate-500 dark:text-zinc-400 font-mono">
+                          {s.time} • <span className="text-slate-400 dark:text-zinc-500">{s.source}</span>
                         </td>
                       </tr>
                     ))
@@ -1456,30 +1456,29 @@ export default function StandupDashboard() {
         )}
 
         {/* ==================================================================== */}
-        {/* ==================================================================== */}
         {/* SPACE 5: BOT CONFIGURATION & SCHEDULE SETTINGS                      */}
         {/* ==================================================================== */}
         {activeTab === "settings" && (
           <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
             {/* Standup Schedule & Auto-Nudge Card */}
-            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
-              <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/20">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-5">
+              <div className="flex items-center gap-3 border-b border-slate-100 dark:border-zinc-800 pb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">Standup Timing & Automated Reminders</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Change broadcast time directly in this dashboard. Bot automatically updates its schedule.</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">Change broadcast time directly in this dashboard. Bot automatically updates its schedule.</p>
                 </div>
               </div>
 
               {/* Time Configuration with Quick Presets */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">
                     Daily Standup Broadcast Time
                   </label>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-500/20">
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-500/20">
                     Active: {settings?.standupTime || "10:30"} AM
                   </span>
                 </div>
@@ -1489,7 +1488,7 @@ export default function StandupDashboard() {
                     type="time"
                     value={settings?.standupTime || "10:30"}
                     onChange={(e) => setSettings(prev => prev ? { ...prev, standupTime: e.target.value } : null)}
-                    className="w-full px-4 py-2.5 text-base font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono shadow-sm"
+                    className="w-full px-4 py-2.5 text-base font-bold bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono shadow-sm"
                   />
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {["09:30", "10:00", "10:30", "11:00"].map((t) => (
@@ -1499,8 +1498,8 @@ export default function StandupDashboard() {
                         onClick={() => setSettings(prev => prev ? { ...prev, standupTime: t } : null)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                           settings?.standupTime === t
-                            ? "bg-indigo-600 text-white shadow-sm"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                            ? "bg-emerald-500 text-black font-bold shadow-sm"
+                            : "bg-slate-100 dark:bg-[#181818] text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-[#222222]"
                         }`}
                       >
                         {t} {parseInt(t.split(":")[0]) < 12 ? "AM" : "PM"}
@@ -1508,21 +1507,21 @@ export default function StandupDashboard() {
                     ))}
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                   ⚡ Bot will automatically ping all registered employees at <b>{settings?.standupTime || "10:30"} AM</b> every morning.
                 </p>
               </div>
 
               {/* Auto-Nudge Interval Selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-zinc-800">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300 mb-1.5">
                     Auto-Nudge Interval
                   </label>
                   <select
                     value={settings?.nudgeIntervalMinutes || 45}
                     onChange={(e) => setSettings(prev => prev ? { ...prev, nudgeIntervalMinutes: parseInt(e.target.value) } : null)}
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value={15}>Every 15 Minutes (Fast Pace)</option>
                     <option value={30}>Every 30 Minutes</option>
@@ -1533,16 +1532,16 @@ export default function StandupDashboard() {
                 </div>
 
                 <div className="flex flex-col justify-end">
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
                     <div>
                       <span className="text-xs font-bold text-slate-900 dark:text-white block">Auto-Nudge Loop</span>
-                      <span className="text-[11px] text-slate-400">Re-pings until reply</span>
+                      <span className="text-[11px] text-slate-400 dark:text-zinc-500">Re-pings until reply</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSettings(prev => prev ? { ...prev, autoNudgeEnabled: !prev.autoNudgeEnabled } : null)}
                       className={`w-12 h-6 rounded-full transition-colors relative p-0.5 shrink-0 cursor-pointer ${
-                        settings?.autoNudgeEnabled !== false ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
+                        settings?.autoNudgeEnabled !== false ? "bg-emerald-500" : "bg-slate-300 dark:bg-zinc-700"
                       }`}
                     >
                       <span
@@ -1556,8 +1555,8 @@ export default function StandupDashboard() {
               </div>
 
               {/* Explanatory Rule Banner */}
-              <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-500/20 text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-500/20 text-xs text-emerald-900 dark:text-emerald-200 leading-relaxed flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div>
                   <b className="font-semibold">Persistent Follow-up Rule:</b> If an employee has not checked in within <b>{settings?.nudgeIntervalMinutes || 45} minutes</b> after the <b>{settings?.standupTime || "10:30"} AM</b> prompt, the bot will automatically send a follow-up reminder every {settings?.nudgeIntervalMinutes || 45} minutes until they reply.
                 </div>
@@ -1565,35 +1564,35 @@ export default function StandupDashboard() {
 
               {/* Bot Custom Morning Prompt */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300 mb-1.5">
                   Custom Morning Standup Prompt
                 </label>
                 <textarea
                   rows={2}
                   value={settings?.botPrompt || "Good morning team! ☕ What epic dragons are you slaying across your projects today?"}
                   onChange={(e) => setSettings(prev => prev ? { ...prev, botPrompt: e.target.value } : null)}
-                  className="w-full px-3.5 py-2 text-xs md:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 leading-relaxed"
+                  className="w-full px-3.5 py-2 text-xs md:text-sm bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 leading-relaxed"
                 />
               </div>
 
               {/* Save & Apply Button */}
               <div className="pt-2 flex items-center justify-between flex-wrap gap-3">
-                <span className="text-xs text-slate-400">Settings save to database & sync with Google Apps Script automatically.</span>
+                <span className="text-xs text-slate-400 dark:text-zinc-500">Settings save to database & sync with Google Apps Script automatically.</span>
                 <button
                   onClick={handleSaveSettings}
                   disabled={triggering}
-                  className="px-5 py-2.5 text-xs md:text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md shadow-indigo-600/25 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs md:text-sm font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black transition-all shadow-md shadow-emerald-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  {triggering ? <RefreshCw className="w-4 h-4 animate-spin text-black" /> : <Check className="w-4 h-4 text-black" />}
                   Save & Apply Schedule to Bot
                 </button>
               </div>
             </div>
 
             {/* Quick Bot Actions & Live Controls */}
-            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Bot Actions & Manual Dispatch</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
                 Trigger morning broadcasts or poke pending employees on-demand without waiting for the automated timer.
               </p>
 
@@ -1601,42 +1600,42 @@ export default function StandupDashboard() {
                 <button
                   onClick={handleTriggerBot}
                   disabled={triggering}
-                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
+                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 hover:border-emerald-400 dark:hover:border-emerald-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
                 >
                   <div className="flex items-center gap-2.5 mb-1">
-                    <Send className="w-4 h-4 text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
+                    <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
                     <span className="font-bold text-xs md:text-sm text-slate-900 dark:text-white">Broadcast Standup Now</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Send standup prompts to all registered employee chats.</p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">Send standup prompts to all registered employee chats.</p>
                 </button>
 
                 <button
                   onClick={handleNudgePending}
                   disabled={triggering || pendingEmployees.length === 0}
-                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
+                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 hover:border-amber-400 dark:hover:border-amber-500/40 text-left transition-all group cursor-pointer disabled:opacity-50"
                 >
                   <div className="flex items-center gap-2.5 mb-1">
                     <Clock className="w-4 h-4 text-amber-500 group-hover:rotate-12 transition-transform" />
                     <span className="font-bold text-xs md:text-sm text-slate-900 dark:text-white">Poke Pending Now ({pendingEmployees.length})</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Send 45-min follow-up reminders to unresponded team members.</p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">Send 45-min follow-up reminders to unresponded team members.</p>
                 </button>
               </div>
             </div>
 
             {/* Live Webhook Card */}
-            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
                   <Terminal className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">Google Chat Z-Mode Webhook Endpoint</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Endpoint URL configured in Google Cloud Console Google Chat API.</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">Endpoint URL configured in Google Cloud Console Google Chat API.</p>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3">
                 <code className="text-xs text-emerald-600 dark:text-emerald-400 font-mono break-all select-all font-semibold">
                   {typeof window !== "undefined" ? `${window.location.origin}/api/chat/google` : "/api/chat/google"}
                 </code>
@@ -1647,28 +1646,28 @@ export default function StandupDashboard() {
                     setWebhookCopied(true);
                     setTimeout(() => setWebhookCopied(false), 3000);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold shrink-0 border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#181818] hover:bg-slate-100 dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 text-xs font-semibold shrink-0 border border-slate-200 dark:border-zinc-700 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
-                  {webhookCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                  {webhookCopied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
                   {webhookCopied ? "Copied" : "Copy URL"}
                 </button>
               </div>
             </div>
 
             {/* Google Cloud Service Account (Direct 1:1 DMs - NO Apps Script) */}
-            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/20">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">Google Cloud Service Account (Direct 1:1 DMs)</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Enables direct 1:1 DM broadcasts from Next.js server with ZERO Apps Script dependencies.</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">Enables direct 1:1 DM broadcasts from Next.js server with ZERO Apps Script dependencies.</p>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Paste your Google Cloud Service Account JSON Key below (or set <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-indigo-600 font-mono text-[11px]">GOOGLE_SERVICE_ACCOUNT_KEY</code> in Vercel Environment Variables):
+              <p className="text-xs text-slate-600 dark:text-zinc-400">
+                Paste your Google Cloud Service Account JSON Key below (or set <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#181818] text-emerald-600 dark:text-emerald-400 font-mono text-[11px]">GOOGLE_SERVICE_ACCOUNT_KEY</code> in Vercel Environment Variables):
               </p>
 
               <textarea
@@ -1676,7 +1675,7 @@ export default function StandupDashboard() {
                 value={settings?.googleServiceAccountKey || ""}
                 onChange={(e) => setSettings(prev => prev ? { ...prev, googleServiceAccountKey: e.target.value } : null)}
                 placeholder='{ "type": "service_account", "project_id": "...", "private_key": "-----BEGIN PRIVATE KEY-----...", "client_email": "...@...iam.gserviceaccount.com" }'
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono shadow-sm"
+                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono shadow-sm"
               />
 
               <div className="flex items-center justify-end">
@@ -1684,7 +1683,7 @@ export default function StandupDashboard() {
                   type="button"
                   onClick={handleSaveSettings}
                   disabled={triggering}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs md:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs md:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
                 >
                   Save Service Account Credentials
                 </button>
@@ -1692,9 +1691,9 @@ export default function StandupDashboard() {
             </div>
 
             {/* Apps Script Settings (Optional Fallback) */}
-            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Google Apps Script Web App (Optional Fallback)</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
                 Optional connector if you prefer running via Google Apps Script instead of direct Service Account.
               </p>
               <input
@@ -1702,23 +1701,23 @@ export default function StandupDashboard() {
                 value={settings?.appsScriptUrl || ""}
                 onChange={(e) => setSettings(prev => prev ? { ...prev, appsScriptUrl: e.target.value } : null)}
                 placeholder="https://script.google.com/macros/s/.../exec"
-                className="w-full px-3.5 py-2 text-xs md:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono shadow-sm"
+                className="w-full px-3.5 py-2 text-xs md:text-sm bg-white dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono shadow-sm"
               />
             </div>
 
             {/* Database & Storage Management (Danger Zone) */}
-            <div className="bg-white dark:bg-slate-900/80 rounded-2xl p-6 border border-rose-200 dark:border-rose-900/50 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-rose-200 dark:border-rose-950/50 shadow-sm space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200 dark:border-rose-800/50">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">Database & Storage Management</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Manage data persistence, caching, and clean up historical standup check-ins.</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">Manage data persistence, caching, and clean up historical standup check-ins.</p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-2">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-400 space-y-2">
                 <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Auto-Persistence Active</span>
@@ -1730,8 +1729,8 @@ export default function StandupDashboard() {
 
               <div className="pt-2 flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">Reset Standup Check-in Records</span>
-                  <span className="text-[11px] text-slate-400">Clears all {standups.length} recorded standup responses from both the server database and local cache.</span>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block">Reset Standup Check-in Records</span>
+                  <span className="text-[11px] text-slate-400 dark:text-zinc-500">Clears all {standups.length} recorded standup responses from both the server database and local cache.</span>
                 </div>
 
                 <button
@@ -1753,19 +1752,19 @@ export default function StandupDashboard() {
         {/* MODAL: PROJECT DEEP-DIVE DRILL-DOWN MODAL                            */}
         {/* ==================================================================== */}
         {selectedProjectModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-scale-in flex flex-col max-h-[90vh]">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden animate-scale-in flex flex-col max-h-[90vh]">
               {/* Modal Header */}
-              <div className="p-5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between">
+              <div className="p-5 bg-slate-50 dark:bg-[#111111] border-b border-slate-200 dark:border-zinc-800 flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/30">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-black flex items-center justify-center shadow-md shadow-emerald-500/20">
                     <Briefcase className="w-6 h-6" />
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       {selectedProjectModal.projectName}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">
                       {selectedProjectModal.members.length} team members • {selectedProjectModal.totalHours} total hours allocated
                     </p>
                   </div>
@@ -1783,17 +1782,17 @@ export default function StandupDashboard() {
               <div className="p-6 overflow-y-auto space-y-6">
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">Total Hours</span>
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 text-center">
+                    <span className="text-[11px] uppercase font-bold text-slate-400 dark:text-zinc-500 block">Total Hours</span>
                     <span className="text-xl font-bold text-slate-900 dark:text-white mt-1 block">{selectedProjectModal.totalHours} hrs</span>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">Contributors</span>
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 text-center">
+                    <span className="text-[11px] uppercase font-bold text-slate-400 dark:text-zinc-500 block">Contributors</span>
                     <span className="text-xl font-bold text-slate-900 dark:text-white mt-1 block">{selectedProjectModal.members.length}</span>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center">
-                    <span className="text-[11px] uppercase font-bold text-slate-400 block">Blockers</span>
-                    <span className={`text-xl font-bold mt-1 block ${selectedProjectModal.blockerCount > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 text-center">
+                    <span className="text-[11px] uppercase font-bold text-slate-400 dark:text-zinc-500 block">Blockers</span>
+                    <span className={`text-xl font-bold mt-1 block ${selectedProjectModal.blockerCount > 0 ? "text-rose-600" : "text-emerald-600 dark:text-emerald-400"}`}>
                       {selectedProjectModal.blockerCount}
                     </span>
                   </div>
@@ -1801,36 +1800,36 @@ export default function StandupDashboard() {
 
                 {/* Team Task Breakdown */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Team Work Breakdown:</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Team Work Breakdown:</h4>
                   <div className="space-y-3">
                     {selectedProjectModal.members.map((m, idx) => (
-                      <div key={idx} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+                      <div key={idx} className="p-4 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-600/10 text-indigo-600 font-bold flex items-center justify-center text-xs">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center text-xs">
                               {m.name.charAt(0)}
                             </div>
                             <div>
                               <span className="font-bold text-sm text-slate-900 dark:text-white block">{m.name}</span>
-                              <span className="text-[11px] text-slate-400">{m.email}</span>
+                              <span className="text-[11px] text-slate-400 dark:text-zinc-500">{m.email}</span>
                             </div>
                           </div>
-                          <span className="font-mono text-xs font-bold px-2.5 py-1 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
+                          <span className="font-mono text-xs font-bold px-2.5 py-1 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
                             {m.hours} hrs
                           </span>
                         </div>
 
                         {/* Tasks List */}
-                        <div className="space-y-1.5 pl-3 border-l-2 border-indigo-500">
+                        <div className="space-y-1.5 pl-3 border-l-2 border-emerald-500">
                           {m.taskList && m.taskList.length > 0 ? (
                             m.taskList.map((t, tIdx) => (
-                              <div key={tIdx} className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
-                                <span className="text-indigo-500 font-bold">•</span>
+                              <div key={tIdx} className="text-xs text-slate-700 dark:text-zinc-300 flex items-start gap-1.5">
+                                <span className="text-emerald-500 font-bold">•</span>
                                 <span>{t}</span>
                               </div>
                             ))
                           ) : (
-                            <p className="text-xs text-slate-700 dark:text-slate-300">{m.tasks}</p>
+                            <p className="text-xs text-slate-700 dark:text-zinc-300">{m.tasks}</p>
                           )}
                         </div>
 
@@ -1847,7 +1846,7 @@ export default function StandupDashboard() {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div className="p-4 bg-slate-50 dark:bg-[#111111] border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between">
                 <button
                   onClick={() => {
                     let text = `📁 Project Briefing: *${selectedProjectModal.projectName}* (${selectedProjectModal.totalHours} hrs)\n`;
@@ -1857,14 +1856,14 @@ export default function StandupDashboard() {
                     navigator.clipboard.writeText(text);
                     alert("Copied project briefing!");
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#181818] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-2 cursor-pointer"
                 >
                   <Copy className="w-3.5 h-3.5" /> Copy Project Briefing
                 </button>
 
                 <button
                   onClick={() => setSelectedProjectModal(null)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs cursor-pointer"
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs cursor-pointer"
                 >
                   Close
                 </button>
@@ -1875,51 +1874,51 @@ export default function StandupDashboard() {
 
         {/* MODAL: ADD EMPLOYEE */}
         {showAddEmp && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 animate-scale-in">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 max-w-md w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-4 animate-scale-in">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Add Company Team Member</h3>
               <form onSubmit={handleAddEmployee} className="space-y-3.5 text-xs md:text-sm">
                 <div>
-                  <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Full Name</label>
+                  <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Full Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. John Doe"
                     value={newEmp.name}
                     onChange={(e) => setNewEmp({ ...newEmp, name: e.target.value })}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Corporate Email</label>
+                  <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Corporate Email</label>
                   <input
                     type="email"
                     required
-                    placeholder="john@bytepx.com"
+                    placeholder="john@example.com"
                     value={newEmp.email}
                     onChange={(e) => setNewEmp({ ...newEmp, email: e.target.value })}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Department</label>
+                    <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Department</label>
                     <input
                       type="text"
                       placeholder="Engineering"
                       value={newEmp.dept}
                       onChange={(e) => setNewEmp({ ...newEmp, dept: e.target.value })}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Role</label>
+                    <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Role</label>
                     <input
                       type="text"
                       placeholder="Frontend Lead"
                       value={newEmp.role}
                       onChange={(e) => setNewEmp({ ...newEmp, role: e.target.value })}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
@@ -1928,13 +1927,13 @@ export default function StandupDashboard() {
                   <button
                     type="button"
                     onClick={() => setShowAddEmp(false)}
-                    className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl bg-slate-100 dark:bg-slate-800 font-medium cursor-pointer"
+                    className="px-4 py-2 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white rounded-xl bg-slate-100 dark:bg-[#181818] font-medium cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-sm cursor-pointer"
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shadow-sm cursor-pointer"
                   >
                     Add Employee
                   </button>
@@ -1946,66 +1945,66 @@ export default function StandupDashboard() {
 
         {/* MODAL: MANUAL STANDUP LOG */}
         {showManualStandup && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 animate-scale-in">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-zinc-800 shadow-2xl space-y-4 animate-scale-in">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Log Standup Check-in</h3>
               <form onSubmit={handleManualStandup} className="space-y-3.5 text-xs md:text-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Employee Name</label>
+                    <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Employee Name</label>
                     <input
                       type="text"
                       required
-                      placeholder="Rudra Sharma"
+                      placeholder="John Doe"
                       value={manualEntry.name}
                       onChange={(e) => setManualEntry({ ...manualEntry, name: e.target.value })}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Project Name</label>
+                    <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Project Name</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Auth & Security, Mobile App"
                       value={manualEntry.project}
                       onChange={(e) => setManualEntry({ ...manualEntry, project: e.target.value })}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Planned Tasks</label>
+                  <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Planned Tasks</label>
                   <textarea
                     required
                     rows={3}
                     placeholder="Building JWT refresh token flow, unit tests..."
                     value={manualEntry.tasks}
                     onChange={(e) => setManualEntry({ ...manualEntry, tasks: e.target.value })}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Hours</label>
+                    <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Hours</label>
                     <input
                       type="number"
                       step="0.5"
                       value={manualEntry.hours}
                       onChange={(e) => setManualEntry({ ...manualEntry, hours: e.target.value })}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Blocker (if any)</label>
+                    <label className="block text-slate-600 dark:text-zinc-400 mb-1 font-medium">Blocker (if any)</label>
                     <input
                       type="text"
                       placeholder="None or specify issue"
                       value={manualEntry.blocker}
                       onChange={(e) => setManualEntry({ ...manualEntry, blocker: e.target.value })}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
@@ -2014,13 +2013,13 @@ export default function StandupDashboard() {
                   <button
                     type="button"
                     onClick={() => setShowManualStandup(false)}
-                    className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl bg-slate-100 dark:bg-slate-800 font-medium cursor-pointer"
+                    className="px-4 py-2 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white rounded-xl bg-slate-100 dark:bg-[#181818] font-medium cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-sm cursor-pointer"
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shadow-sm cursor-pointer"
                   >
                     Save Check-in
                   </button>

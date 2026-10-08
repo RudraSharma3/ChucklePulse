@@ -145,7 +145,7 @@ export default function StandupDashboard() {
       let fetchedStandups: StandupRecord[] = Array.isArray(resStd) ? resStd : [];
       let fetchedEmployees: Employee[] = Array.isArray(resEmp) ? resEmp : [];
 
-      // LocalStorage Persistence Layer for Standups: Ensures recorded standups are preserved across redeployments and reloads
+      // LocalStorage Persistence Layer for Standups: Ensures recorded standups are preserved and deduplicated
       try {
         const cachedStdRaw = localStorage.getItem("bytepx_standups_cache");
         if (cachedStdRaw) {
@@ -153,25 +153,20 @@ export default function StandupDashboard() {
           if (Array.isArray(cachedStds) && cachedStds.length > 0) {
             const stdMap = new Map<string, StandupRecord>();
             fetchedStandups.forEach(s => {
-              if (s && s.id) stdMap.set(s.id, s);
+              if (s && s.email) {
+                const key = `${s.email.trim().toLowerCase()}::${s.date || 'today'}`;
+                stdMap.set(key, s);
+              }
             });
-            let needServerSync = false;
-            const missingStds: StandupRecord[] = [];
             cachedStds.forEach(s => {
-              if (s && s.id && !stdMap.has(s.id)) {
-                stdMap.set(s.id, s);
-                missingStds.push(s);
-                needServerSync = true;
+              if (s && s.email) {
+                const key = `${s.email.trim().toLowerCase()}::${s.date || 'today'}`;
+                if (!stdMap.has(key)) {
+                  stdMap.set(key, s);
+                }
               }
             });
             fetchedStandups = Array.from(stdMap.values());
-            if (needServerSync && missingStds.length > 0) {
-              await fetch("/api/standups", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ bulk: true, standups: missingStds })
-              });
-            }
           }
         }
         if (fetchedStandups.length > 0) {
@@ -223,12 +218,25 @@ export default function StandupDashboard() {
     return false;
   };
 
-  // Standups for the active view date mode (today vs all history)
+  // Standups for the active view date mode (today vs all history) - always unique per employee per day
   const dateFilteredStandups = useMemo(() => {
-    if (dateFilter === "today") {
-      return standups.filter(s => isTodayDate(s.date));
-    }
-    return standups;
+    const rawList = dateFilter === "today" ? standups.filter(s => isTodayDate(s.date)) : standups;
+    const uniqueMap = new Map<string, StandupRecord>();
+    rawList.forEach(s => {
+      if (!s || !s.email) return;
+      const key = `${s.email.trim().toLowerCase()}::${s.date || 'today'}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, s);
+      } else {
+        const existing = uniqueMap.get(key)!;
+        const existingTime = existing.id?.startsWith("std_") ? parseInt(existing.id.replace(/\D/g, "")) || 0 : 0;
+        const newTime = s.id?.startsWith("std_") ? parseInt(s.id.replace(/\D/g, "")) || 0 : 0;
+        if (newTime >= existingTime) {
+          uniqueMap.set(key, s);
+        }
+      }
+    });
+    return Array.from(uniqueMap.values());
   }, [standups, dateFilter]);
 
   // Filtered Standups with Search & Dept/Project/Blocker filters applied

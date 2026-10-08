@@ -5,25 +5,7 @@ import { StandupRecord } from "@/lib/types";
 import { formatLocalTime, formatLocalDate } from "@/lib/googleChatHelper";
 
 export async function GET(req: NextRequest) {
-  let list = db.getStandups();
-  if (list.length === 0) {
-    try {
-      const settings = db.getSettings();
-      if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
-        const url = settings.appsScriptUrl.includes('?')
-          ? `${settings.appsScriptUrl}&action=get_standups`
-          : `${settings.appsScriptUrl}?action=get_standups`;
-        const res = await fetch(url, { cache: 'no-store' });
-        if (res.ok) {
-          const cloudStandups: StandupRecord[] = await res.json();
-          if (Array.isArray(cloudStandups) && cloudStandups.length > 0) {
-            cloudStandups.forEach(s => db.saveStandup(s));
-            list = db.getStandups();
-          }
-        }
-      }
-    } catch (e) {}
-  }
+  const list = db.getStandups();
   return NextResponse.json(list);
 }
 

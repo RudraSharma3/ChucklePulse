@@ -119,18 +119,6 @@ export async function POST(req: NextRequest) {
     try {
       const regEmail = userEmail || `${userName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@bytepx.com`;
       db.registerEmployeeSpace(regEmail, spaceName, userName);
-      const settings = db.getSettings();
-      if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
-        const regUrl = settings.appsScriptUrl.includes('?')
-          ? `${settings.appsScriptUrl}&action=register_dm&email=${encodeURIComponent(regEmail)}&space=${encodeURIComponent(spaceName)}&name=${encodeURIComponent(userName)}`
-          : `${settings.appsScriptUrl}?action=register_dm&email=${encodeURIComponent(regEmail)}&space=${encodeURIComponent(spaceName)}&name=${encodeURIComponent(userName)}`;
-        
-        // Await with timeout so Vercel does not terminate lambda before fetch completes
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        await fetch(regUrl, { method: 'GET', signal: controller.signal }).catch(() => {});
-        clearTimeout(timeoutId);
-      }
     } catch (e) {}
   }
 

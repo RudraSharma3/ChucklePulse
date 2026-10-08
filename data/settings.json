@@ -9,6 +9,5 @@
   "googleChatWebhookUrl": "",
   "botPrompt": "Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?",
   "gifTag": "work-coffee",
-  "theme": "light",
-  "appsScriptUrl": "https://script.google.com/macros/s/AKfycbznS95B3hrLjJYDozlrdQ1geq2UFDDilabLwLWDm-_SKPeuh1RY_dYAbZKLMlNwWkni/exec"
+  "theme": "light"
 }

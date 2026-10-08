@@ -32,7 +32,6 @@ const DEFAULT_SETTINGS: CompanySettings = {
   nudgeIntervalMinutes: 45,
   maxNudges: 3,
   googleChatWebhookUrl: "",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbznS95B3hrLjJYDozlrdQ1geq2UFDDilabLwLWDm-_SKPeuh1RY_dYAbZKLMlNwWkni/exec",
   botPrompt: "Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?",
   gifTag: "work-coffee",
   theme: "light"
@@ -136,9 +135,6 @@ export const db = {
       const seedPath = path.join(SEED_DIR, 'employees.json');
       writeFile(seedPath, sanitized);
     } catch (e) {}
-    if (success) {
-      db.syncEmployeesToCloud(sanitized);
-    }
     return success;
   },
   deleteEmployee: (idOrEmail: string): Employee[] => {
@@ -147,18 +143,6 @@ export const db = {
     const filtered = current.filter(e => e.id !== idOrEmail && e.email.toLowerCase() !== clean);
     db.saveEmployees(filtered);
     return filtered;
-  },
-  syncEmployeesToCloud: (employees: Employee[]) => {
-    try {
-      const settings = db.getSettings();
-      if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
-        fetch(settings.appsScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'save_employees', employees })
-        }).catch(() => {});
-      }
-    } catch (e) {}
   },
   getStandups: (): StandupRecord[] => {
     const raw = readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
@@ -190,7 +174,6 @@ export const db = {
       list.unshift(record);
     }
     writeFile(STD_FILE, list);
-    db.syncStandupToCloud(record);
     return list;
   },
   deleteStandup: (id: string): StandupRecord[] => {
@@ -201,18 +184,6 @@ export const db = {
   },
   clearAllStandups: (): boolean => {
     return writeFile(STD_FILE, []);
-  },
-  syncStandupToCloud: (record: StandupRecord) => {
-    try {
-      const settings = db.getSettings();
-      if (settings.appsScriptUrl && settings.appsScriptUrl.startsWith('http')) {
-        fetch(settings.appsScriptUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'save_standup', record })
-        }).catch(() => {});
-      }
-    } catch (e) {}
   },
   registerEmployeeSpace: (email: string, spaceName: string, name?: string): Employee[] => {
     if (!email || !spaceName) return db.getEmployees();

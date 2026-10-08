@@ -34,7 +34,6 @@ export interface CompanySettings {
   nudgeIntervalMinutes: number; // e.g. 45
   maxNudges: number;
   googleChatWebhookUrl: string;
-  appsScriptUrl: string;
   googleServiceAccountKey?: string;
   botPrompt: string;
   gifTag: string;

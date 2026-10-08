@@ -210,9 +210,6 @@ StandupPulse/
 │   ├── employees.json                   # Team members list (Seed)
 │   ├── settings.json                    # Workspace settings
 │   └── standups.json                    # Daily standup records
-├── google-chat-bot/                     # Apps Script Direct 1:1 Dispatcher (Optional)
-│   ├── Code.gs                          # 1:1 DM broadcast & direct message engine
-│   └── appsscript.json                  # Manifest configuration
 ├── lib/                                 # Core Business Logic & Adapters
 │   ├── db.ts                            # Universal database adapter
 │   ├── googleChatDirect.ts              # Service Account direct DM engine

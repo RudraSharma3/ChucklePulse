@@ -1773,21 +1773,6 @@ export default function StandupDashboard() {
               </div>
             </div>
 
-            {/* Apps Script Settings (Optional Fallback) */}
-            <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-4">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">Google Apps Script Web App (Optional Fallback)</h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Optional connector if you prefer running via Google Apps Script instead of direct Service Account.
-              </p>
-              <input
-                type="text"
-                value={settings?.appsScriptUrl || ""}
-                onChange={(e) => setSettings(prev => prev ? { ...prev, appsScriptUrl: e.target.value } : null)}
-                placeholder="https://script.google.com/macros/s/.../exec"
-                className="w-full px-3.5 py-2 text-xs md:text-sm bg-white dark:bg-[#141414] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono shadow-sm"
-              />
-            </div>
-
             {/* Database & Storage Management (Danger Zone) */}
             <div className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-6 border border-rose-200 dark:border-rose-950/50 shadow-sm space-y-4">
               <div className="flex items-center gap-3">

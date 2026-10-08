@@ -64,28 +64,14 @@ async function handleTrigger(req: NextRequest) {
       }
     }
 
-    // 3. Apps Script Delivery (fallback if configured)
-    let appsScriptData: any = null;
-    if (!directSent && settings.appsScriptUrl && settings.appsScriptUrl.startsWith("http")) {
-      try {
-        const triggerUrl = settings.appsScriptUrl.includes("?") 
-          ? `${settings.appsScriptUrl}&action=${action}` 
-          : `${settings.appsScriptUrl}?action=${action}`;
-
-        const res = await fetch(triggerUrl, { method: "GET" });
-        appsScriptData = await res.json().catch(() => ({ success: true }));
-      } catch (e) {}
-    }
-
-    if (directSent || (appsScriptData && appsScriptData.sent > 0)) {
+    if (directSent || (serviceAccountResult && serviceAccountResult.sent > 0)) {
       return NextResponse.json({
         success: true,
         message: action === "nudge"
           ? "⏰ Follow-up standup reminder sent directly to Google Chat DMs!"
           : "🚀 Daily standup prompt dispatched directly to Google Chat 1:1 DMs!",
         directSent,
-        serviceAccount: serviceAccountResult,
-        appsScript: appsScriptData
+        serviceAccount: serviceAccountResult
       });
     }
 
@@ -95,8 +81,7 @@ async function handleTrigger(req: NextRequest) {
         ? `Dispatch notice: ${directError}`
         : "Standup prompt broadcast dispatched.",
       directSent,
-      serviceAccount: serviceAccountResult,
-      appsScript: appsScriptData
+      serviceAccount: serviceAccountResult
     });
 
   } catch (err: any) {

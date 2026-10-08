@@ -5,7 +5,7 @@
     "email": "tanmay.jain@bytepx.com",
     "dept": "IT",
     "role": "DE Intern",
-    "webhookUrl": "",
+    "webhookUrl": "spaces/yDtLmqAAAAE",
     "createdAt": "2026-10-01T07:58:31.100Z"
   },
   {
@@ -32,26 +32,8 @@
     "email": "prerna@bytepx.com",
     "dept": "Engineering",
     "role": "Team Member",
-    "webhookUrl": "",
+    "webhookUrl": "spaces/qaffWqAAAAE",
     "createdAt": "2026-10-07T07:15:00.000Z"
-  },
-  {
-    "id": "emp_1790846454032",
-    "name": "Mala Das",
-    "email": "mala.das@bytepx.com",
-    "dept": "Engineering",
-    "role": "Team Member",
-    "webhookUrl": "",
-    "createdAt": "2026-10-07T08:00:00.000Z"
-  },
-  {
-    "id": "emp_1790846454033",
-    "name": "Deepika Pal",
-    "email": "deepika.pal@bytepx.com",
-    "dept": "Engineering",
-    "role": "Team Member",
-    "webhookUrl": "",
-    "createdAt": "2026-10-07T08:00:00.000Z"
   },
   {
     "id": "emp_1790846454034",

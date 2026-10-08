@@ -179,42 +179,12 @@ export default function StandupDashboard() {
         }
       } catch (e) {}
 
-      // LocalStorage Persistence Layer for Employees: Ensures newly added employees are never lost across redeployments
-      try {
-        const cachedRaw = localStorage.getItem("bytepx_employees_cache");
-        if (cachedRaw) {
-          const cachedEmps: Employee[] = JSON.parse(cachedRaw);
-          if (Array.isArray(cachedEmps) && cachedEmps.length > 0) {
-            const empMap = new Map<string, Employee>();
-            fetchedEmployees.forEach(e => {
-              if (e && e.email) empMap.set(e.email.toLowerCase(), e);
-            });
-            let needEmpSync = false;
-            const missingEmps: Employee[] = [];
-            cachedEmps.forEach(e => {
-              if (e && e.email && !empMap.has(e.email.toLowerCase())) {
-                empMap.set(e.email.toLowerCase(), e);
-                missingEmps.push(e);
-                needEmpSync = true;
-              }
-            });
-            fetchedEmployees = Array.from(empMap.values());
-            if (needEmpSync && missingEmps.length > 0) {
-              await fetch("/api/employees", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ bulk: true, employees: fetchedEmployees })
-              });
-            }
-          }
-        }
-        if (fetchedEmployees.length > 0) {
-          localStorage.setItem("bytepx_employees_cache", JSON.stringify(fetchedEmployees));
-        }
-      } catch (e) {}
-
       setStandups(fetchedStandups);
       setEmployees(fetchedEmployees);
+      try {
+        localStorage.setItem("bytepx_standups_cache", JSON.stringify(fetchedStandups));
+        localStorage.setItem("bytepx_employees_cache", JSON.stringify(fetchedEmployees));
+      } catch (e) {}
       setSettings(resSet);
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
@@ -417,14 +387,19 @@ export default function StandupDashboard() {
     }
   };
 
-  // Delete Employee
+  // Delete Employee (Instant Optimistic UI Update)
   const handleDeleteEmployee = async (id: string) => {
     if (!confirm("Are you sure you want to remove this employee?")) return;
+    const cleanId = id.trim().toLowerCase();
+    const updated = employees.filter(e => e.id !== id && e.email.toLowerCase() !== cleanId);
+    setEmployees(updated);
     try {
-      await fetch(`/api/employees?id=${id}`, { method: "DELETE" });
-      fetchData();
+      localStorage.setItem("bytepx_employees_cache", JSON.stringify(updated));
+    } catch (e) {}
+    try {
+      await fetch(`/api/employees?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     } catch (err) {
-      console.error(err);
+      console.error("Failed to delete employee on server:", err);
     }
   };
 

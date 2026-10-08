@@ -216,6 +216,56 @@ export function buildRemainingHoursCard(params: {
 }
 
 /**
+ * Builds an Invalid Task Entry / Non-Work Activity Notice Card
+ */
+export function buildNonWorkActivityCard(params: {
+  userName: string;
+  inputPhrase: string;
+}) {
+  return {
+    cardsV2: [
+      {
+        cardId: `nonwork-${Date.now()}`,
+        card: {
+          header: {
+            title: `⚠️ Invalid Task Entry: "${params.inputPhrase}"`,
+            subtitle: `Personal activities cannot be logged as company work tasks`,
+            imageUrl: BOT_ICON_URL,
+            imageType: "CIRCLE"
+          },
+          sections: [
+            {
+              widgets: [
+                {
+                  textParagraph: {
+                    text: `❌ <b>"${params.inputPhrase}"</b> is not recognized as an active company project task or initiative.`
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `👉 <b>If you worked on company tasks:</b> Please reply with your actual project & tasks (e.g. <i>"1h on bug fixes"</i> or <i>"1h on documentation"</i>).`
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `🏖️ <b>If you took time off or left early:</b> Reply with <i>"half day leave"</i> or <i>"personal leave"</i>.`
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `⏳ <b>If you had no tasks assigned:</b> Reply with <i>"awaiting tasks"</i>.`
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  };
+}
+
+/**
  * Builds an interactive Standup Confirmation Card v2
  */
 export function buildStandupConfirmationCard(params: {

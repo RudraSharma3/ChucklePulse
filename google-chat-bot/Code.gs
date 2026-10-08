@@ -220,6 +220,23 @@ function onMessage(event) {
       return buildPromptCard(senderName);
     }
 
+    // Check for Non-Work Activities (personal work, personal task, break, lunch, etc.) -> Reject as invalid
+    const isNonWork = /\b(personal\s+work|personal\s+stuff|personal\s+errand|personal\s+errands|personal\s+task|personal\s+tasks|private\s+work|non[\s-]work|errands?|timepass)\b/i.test(text) || /^(?:personal|break|lunch|gym|chill|chilling|idle|nothing|timepass)$/i.test(text.toLowerCase());
+
+    if (isNonWork) {
+      return {
+        text: [
+          `⚠️ *Invalid Task Entry: "${text}"*`,
+          `━━━━━━━━━━━━━━━━━━━━━━━━`,
+          `❌ *Personal activities cannot be logged as company work tasks.*`,
+          ``,
+          `👉 *If you worked on company tasks:* Reply with your actual project & tasks (e.g. \`3h on feature development\` or \`3h on testing\`).`,
+          `🏖️ *If you took time off or left early:* Reply with \`half day leave\` or \`personal leave\`.`,
+          `⏳ *If you had no tasks assigned:* Reply with \`awaiting tasks\`.`
+        ].join("\n")
+      };
+    }
+
     // Parse standup
     const parsed = parseStandupText(text);
     const props = PropertiesService.getScriptProperties();

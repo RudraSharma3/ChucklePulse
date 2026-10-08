@@ -225,6 +225,7 @@ export function buildStandupConfirmationCard(params: {
   hours: number;
   blocker: string;
   time: string;
+  isUpdate?: boolean;
 }) {
   const blockerBadge = params.blocker === "None"
     ? "🟢 <b>Blockers:</b> None"
@@ -234,14 +235,22 @@ export function buildStandupConfirmationCard(params: {
     ? `${params.hours} hrs`
     : (params.project.includes("Awaiting") ? "0 hrs (Standby / Awaiting Tasks)" : (params.project.includes("Leave") ? "0 hrs (On Leave)" : "0 hrs (Unspecified)"));
 
+  const cardTitle = params.isUpdate
+    ? `🔄 Standup Updated: ${params.project}`
+    : `✅ Standup Logged: ${params.project}`;
+
+  const subtitle = params.isUpdate
+    ? `Updated for ${params.employeeName.split(' ')[0]} at ${params.time}`
+    : `Recorded for ${params.employeeName.split(' ')[0]} at ${params.time}`;
+
   return {
     cardsV2: [
       {
         cardId: `confirm-${Date.now()}`,
         card: {
           header: {
-            title: `✅ Standup Logged: ${params.project}`,
-            subtitle: `Recorded for ${params.employeeName.split(' ')[0]} at ${params.time}`,
+            title: cardTitle,
+            subtitle: subtitle,
             imageUrl: BOT_ICON_URL,
             imageType: "CIRCLE"
           },
@@ -266,6 +275,11 @@ export function buildStandupConfirmationCard(params: {
                 {
                   textParagraph: {
                     text: blockerBadge
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `💡 <i>Need to adjust? Simply reply with updated tasks & hours anytime today to override!</i>`
                   }
                 }
               ]

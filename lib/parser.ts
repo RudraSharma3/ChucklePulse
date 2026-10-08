@@ -1,3 +1,15 @@
+function cleanProjectOrTask(raw: string): string {
+  return raw
+    .replace(/^(?:and\s+on|and\s+also|and\s+then|and|on|in|with|i\s+am\s+on|i\s+am\s+working\s+on|i\s+will\s+work\s+on|working\s+on|i\s+am|im|i\'m)\s+/gi, '')
+    .replace(/^project\s*[-:]?\s*/gi, 'Project ')
+    .replace(/^[-:,\s]+|[-:,\s]+$/g, '')
+    .trim();
+}
+
+function capitalizeWords(str: string): string {
+  return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
 /**
  * Intelligent Standup NLP Parser
  * Extracts Project Name, Hours, Tasks List, and Blockers from any freeform conversational text.
@@ -30,20 +42,99 @@ export function parseStandupMessage(text: string): {
   const isOnLeave = /on\s+leave|sick\s+leave|day\s+off|vacation|out\s+of\s+office|holiday|taking\s+leave/i.test(lower);
 
   if (isAwaitingTask) {
-    project = "Awaiting Tasks / Standby";
-    blocker = "Waiting for task allocation";
-    hours = 0;
-    hasExplicitHours = true;
-  } else if (isOnLeave) {
-    project = "On Leave / Out of Office";
-    blocker = "None";
-    hours = 0;
-    hasExplicitHours = true;
+    return {
+      project: "Awaiting Tasks / Standby",
+      hours: 0,
+      hasExplicitHours: true,
+      isOnlyHours: false,
+      isAwaitingTask: true,
+      isOnLeave: false,
+      tasks: "Awaiting task allocation",
+      taskList: ["Awaiting task allocation"],
+      blocker: "Waiting for task allocation"
+    };
+  }
+  if (isOnLeave) {
+    return {
+      project: "On Leave / Out of Office",
+      hours: 0,
+      hasExplicitHours: true,
+      isOnlyHours: false,
+      isAwaitingTask: false,
+      isOnLeave: true,
+      tasks: "On Leave",
+      taskList: ["On Leave"],
+      blocker: "None"
+    };
   }
 
-  // 2. Extract and SUM Explicit Hours across the entire message
+  // 2. Blocker extraction
+  const blockerMatch = clean.match(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-]([^\.\n\r]+)/i);
+  if (blockerMatch) {
+    const rawBlocker = blockerMatch[1].trim();
+    if (/^(none|no|nil|n\/a|nope|nothing|all clear|no blocker)$/i.test(rawBlocker)) {
+      blocker = "None";
+    } else {
+      blocker = rawBlocker;
+    }
+  } else if (/then\s+(?:i\s+)?(?:dont|don\'t|dont\s+have|dont\s+ave|do\s+not\s+have|have\s+no)\s+(?:any\s+)?(?:work|task)/i.test(lower)) {
+    blocker = "Awaiting task allocation after planned hours";
+  }
+
+  // Remove blocker portion for task/project parsing
+  const textWithoutBlocker = clean.replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, ' ').trim();
+
+  // 3. Multi-Segment & Multi-Project Chunk Parsing
+  // Splits on: "and on", "and also", "and then", "and", ",", ";", "\n", "&", "+"
+  const chunks = textWithoutBlocker
+    .split(/(?:\s+(?:and\s+on|and\s+also|and\s+then|and|&|\+)\s+|[,\n;]+)/i)
+    .map(c => c.trim())
+    .filter(Boolean);
+
+  const parsedSegments: Array<{ name: string; hours: number }> = [];
+  const chunkRegex = /^(?:(?:i\s+am\s+(?:on|working\s+on)|i\s+am\s+on\s+project|working\s+on|work\s+on|focusing\s+on|on|in)\s+)?(?:project\s*[-:]?\s*([a-zA-Z0-9_\-]+)|([a-zA-Z0-9_\-\s]+?))\s*(?:for\s+|-|:|\(|\bat\b)\s*(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)?(?:\s*\))?$/i;
+
+  for (const chunk of chunks) {
+    const m = chunk.match(chunkRegex);
+    if (m) {
+      const rawName = (m[1] ? 'Project ' + m[1] : m[2]);
+      let cleanedName = cleanProjectOrTask(rawName);
+      if (cleanedName.length === 1) cleanedName = 'Project ' + cleanedName.toUpperCase();
+      if (/^project\s+[a-z]$/i.test(cleanedName)) {
+        cleanedName = cleanedName.toUpperCase().replace('PROJECT', 'Project');
+      } else {
+        cleanedName = capitalizeWords(cleanedName);
+      }
+      const hrs = parseFloat(m[3]);
+      if (!isNaN(hrs) && hrs > 0 && hrs <= 24) {
+        parsedSegments.push({ name: cleanedName, hours: hrs });
+      }
+    }
+  }
+
+  if (parsedSegments.length > 0) {
+    const totalHours = +(parsedSegments.reduce((acc, s) => acc + s.hours, 0).toFixed(1));
+    const projectNames = Array.from(new Set(parsedSegments.map(s => s.name)));
+    const combinedProject = projectNames.join(' + ');
+    const taskList = parsedSegments.map(s => `${s.name} (${s.hours} ${s.hours === 1 ? 'hr' : 'hrs'})`);
+    const tasks = taskList.join(', ');
+
+    return {
+      project: combinedProject,
+      hours: totalHours,
+      hasExplicitHours: true,
+      isOnlyHours: false,
+      isAwaitingTask: false,
+      isOnLeave: false,
+      tasks,
+      taskList,
+      blocker
+    };
+  }
+
+  // 4. Fallback Single-Project / Explicit Hours Extraction across full text
   const hoursRegex = /(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/gi;
-  const allMatches = Array.from(clean.matchAll(hoursRegex));
+  const allMatches = Array.from(textWithoutBlocker.matchAll(hoursRegex));
   if (allMatches.length > 0) {
     let sum = 0;
     for (const m of allMatches) {
@@ -61,40 +152,23 @@ export function parseStandupMessage(text: string): {
     hasExplicitHours = true;
   }
 
-  // 3. Extract Explicit or Conversational Blocker / Status
-  const blockerMatch = clean.match(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-]([^\.\n\r]+)/i);
-  if (blockerMatch) {
-    const rawBlocker = blockerMatch[1].trim();
-    if (/^(none|no|nil|n\/a|nope|nothing|all clear|no blocker)$/i.test(rawBlocker)) {
-      blocker = "None";
-    } else {
-      blocker = rawBlocker;
-    }
-  } else if (/then\s+(?:i\s+)?(?:dont|don\'t|dont\s+have|dont\s+ave|do\s+not\s+have|have\s+no)\s+(?:any\s+)?(?:work|task)/i.test(lower)) {
-    blocker = "Awaiting task allocation after planned hours";
-  }
+  // 5. Extract Single Project Name
+  const explicitMatch = textWithoutBlocker.match(/(?:project|initiative|feature|repo)[:\s-]([a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
+  const actionMatch = textWithoutBlocker.match(/(?:(?:i\s+will\s+be|i\s+will|will\s+be|will|i\s+am|i\'m|im)\s+)?(?:working on|working in|work on|work in|focusing on|assigned to|developing|building|debugging|refactoring|testing)\s+(?:the\s+)?(project\s+[a-zA-Z0-9\s_&-]+?|[a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
+  const projectMatch = explicitMatch || actionMatch;
 
-  // 4. Extract Project Name with Precision
-  if (!isAwaitingTask && !isOnLeave) {
-    // Explicit syntax: Project: Name, Repo: Name, Feature: Name
-    const explicitMatch = clean.match(/(?:project|initiative|feature|repo)[:\s-]([a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
-    // Conversational action syntax: "i will work on project x", "i am working on project x", "working on xyz", "will work on project x"
-    const actionMatch = clean.match(/(?:(?:i\s+will\s+be|i\s+will|will\s+be|will|i\s+am|i\'m|im)\s+)?(?:working on|working in|work on|work in|focusing on|assigned to|developing|building|debugging|refactoring|testing)\s+(?:the\s+)?(project\s+[a-zA-Z0-9\s_&-]+?|[a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
-    const projectMatch = explicitMatch || actionMatch;
-
-    if (projectMatch && projectMatch[1].trim().length >= 1 && projectMatch[1].trim().length <= 35) {
-      let candidate = projectMatch[1].trim();
-      if (!/^(today|yesterday|tomorrow|tasks|work|something|now|morning|afternoon|this|the|any|next)$/i.test(candidate)) {
-        if (candidate.length <= 2 && !candidate.toLowerCase().includes('project')) {
-          candidate = 'Project ' + candidate.toUpperCase();
-        }
-        project = capitalizeTitle(candidate);
+  if (projectMatch && projectMatch[1].trim().length >= 1 && projectMatch[1].trim().length <= 35) {
+    let candidate = projectMatch[1].trim();
+    if (!/^(today|yesterday|tomorrow|tasks|work|something|now|morning|afternoon|this|the|any|next)$/i.test(candidate)) {
+      if (candidate.length <= 2 && !candidate.toLowerCase().includes('project')) {
+        candidate = 'Project ' + candidate.toUpperCase();
       }
+      project = capitalizeWords(candidate);
     }
   }
 
-  // 5. Fallback Keyword Project Categorization
-  if (!project && !isAwaitingTask && !isOnLeave) {
+  // 6. Fallback Keyword Project Categorization
+  if (!project) {
     if (lower.includes("auth") || lower.includes("login") || lower.includes("jwt") || lower.includes("security") || lower.includes("oauth")) {
       project = "Auth & Security";
     } else if (lower.includes("erp") || lower.includes("crm") || lower.includes("automation")) {
@@ -118,9 +192,8 @@ export function parseStandupMessage(text: string): {
     }
   }
 
-  // 6. Clean task string thoroughly without smashing words together
-  let tasks = clean
-    .replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, ' ')
+  // 7. Clean task string
+  let tasks = textWithoutBlocker
     .replace(/(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/gi, ' ')
     .replace(/\(\s*\)/g, ' ')
     .replace(/\s+/g, ' ')
@@ -128,23 +201,21 @@ export function parseStandupMessage(text: string): {
     .replace(/^[,;:\s-]+|[,;:\s-]+$/g, '')
     .trim();
 
-  // Capitalize sentence start
   if (tasks.length > 0) {
     tasks = tasks.charAt(0).toUpperCase() + tasks.slice(1);
   } else {
     tasks = clean;
   }
 
-  // 7. Split into structured task list
   const taskList = extractStructuredTasks(tasks);
 
   return {
-    project,
+    project: project || "Daily Tasks",
     hours,
     hasExplicitHours,
     isOnlyHours,
-    isAwaitingTask,
-    isOnLeave,
+    isAwaitingTask: false,
+    isOnLeave: false,
     tasks,
     taskList,
     blocker
@@ -182,11 +253,4 @@ export function extractStructuredTasks(text: string): string[] {
   }
 
   return items.length > 0 ? items : [text];
-}
-
-function capitalizeTitle(str: string): string {
-  return str
-    .split(' ')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
 }

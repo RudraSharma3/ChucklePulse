@@ -157,7 +157,7 @@ export async function sendDirectMessageToSpace(spaceName: string, payload: any):
 export async function discoverAllSpacesAndMembers(token: string): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   try {
-    const listRes = await fetch("https://chat.googleapis.com/v1/spaces", {
+    const listRes = await fetch("https://chat.googleapis.com/v1/spaces?pageSize=100", {
       headers: { "Authorization": `Bearer ${token}` }
     });
     if (listRes.ok) {

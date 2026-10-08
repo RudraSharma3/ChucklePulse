@@ -242,7 +242,7 @@ export const db = {
     }
     return null;
   },
-  savePendingDraft: (userKey: string, draft: { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number }): void => {
+  savePendingDraft: (userKey: string, draft: { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date?: string }): void => {
     if (!userKey) return;
     const filePath = path.join(DATA_DIR, 'drafts.json');
     const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string }>>(
@@ -256,7 +256,7 @@ export const db = {
       blocker: draft.blocker,
       hours: draft.hours ?? 0,
       remainingHours: draft.remainingHours ?? 0,
-      date: new Date().toISOString().slice(0, 10)
+      date: draft.date || new Date().toISOString().slice(0, 10)
     };
     writeFile(filePath, drafts);
   },

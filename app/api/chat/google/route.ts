@@ -365,10 +365,17 @@ export async function POST(req: NextRequest) {
     const dateStr = formatLocalDate(now);
     const existingDraft = db.getPendingDraft(userKey);
 
+    // Check if user already submitted a standup today (to flag as update/override)
+    const existingStandups = db.getStandups();
+    const isUpdate = existingStandups.some(
+      s => s.email.toLowerCase() === (userEmail || "").toLowerCase() && s.date === dateStr
+    );
+
     // =========================================================================
     // CASE 1: USER IS REPLYING TO AN EXISTING DRAFT (HOURS OR REMAINING TASKS)
+    // Only treat as draft continuation if the new message isn't already a full standup (>=8h)
     // =========================================================================
-    if (existingDraft) {
+    if (existingDraft && !(parsed.hasExplicitHours && parsed.hours >= 8.0)) {
       let combinedHours = 8.0;
       let combinedTasks = existingDraft.tasks;
       let combinedProject = existingDraft.project;
@@ -450,7 +457,8 @@ export async function POST(req: NextRequest) {
         tasks: record.tasks,
         hours: record.hours,
         blocker: record.blocker,
-        time: timeStr
+        time: timeStr,
+        isUpdate
       });
 
       return chatJson(formatChatResponse(confirmationCard));
@@ -535,7 +543,7 @@ export async function POST(req: NextRequest) {
       rawText: cleanText
     };
 
-    // Save check-in immediately to database and cloud
+    // Save check-in immediately to database and cloud (replaces previous record for today)
     db.saveStandup(record);
     db.clearPendingDraft(userKey);
 
@@ -546,7 +554,8 @@ export async function POST(req: NextRequest) {
       tasks: record.tasks,
       hours: record.hours,
       blocker: record.blocker,
-      time: timeStr
+      time: timeStr,
+      isUpdate
     });
 
     return chatJson(formatChatResponse(confirmationCard));

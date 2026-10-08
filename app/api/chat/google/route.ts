@@ -371,18 +371,22 @@ export async function POST(req: NextRequest) {
       s => s.email.toLowerCase() === (userEmail || "").toLowerCase() && s.date === dateStr
     );
 
+    // Determine if this message is a fresh standalone multi-project standup (rather than replying with hours to an existing draft)
+    const isNewDetailedStandup = !parsed.isOnlyHours && parsed.hasExplicitHours && (parsed.taskList.length > 1 || (parsed.tasks && parsed.tasks.length > 25 && parsed.tasks !== cleanText));
+
     // =========================================================================
     // CASE 1: USER IS REPLYING TO AN EXISTING DRAFT (HOURS OR REMAINING TASKS)
-    // Only treat as draft continuation if the new message isn't already a full standup (>=8h)
     // =========================================================================
-    if (existingDraft && !(parsed.hasExplicitHours && parsed.hours >= 8.0)) {
+    if (existingDraft && !isNewDetailedStandup) {
       let combinedHours = 8.0;
       let combinedTasks = existingDraft.tasks;
       let combinedProject = existingDraft.project;
       let combinedBlocker = existingDraft.blocker || parsed.blocker || 'None';
 
-      // If user is logging leave or standby for the rest of the day
-      if (parsed.isOnLeave || /half\s+day|day\s+off|leave/i.test(lowerText)) {
+      if (parsed.isOnlyHours) {
+        // User is answering "How many hours for today?" (e.g. "8 hours", "8h", "8")
+        combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
+      } else if (parsed.isOnLeave || /half\s+day|day\s+off|leave/i.test(lowerText)) {
         combinedHours = existingDraft.hours || 4.0;
         combinedTasks = `${existingDraft.tasks} (Half-Day Leave)`;
         combinedBlocker = 'Half-Day Leave';
@@ -407,6 +411,9 @@ export async function POST(req: NextRequest) {
       } else {
         // User had no hours previously and is now providing hours for the task
         combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
+        if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 5 && !parsed.isOnlyHours) {
+          combinedTasks = `${existingDraft.tasks}, ${parsed.tasks}`;
+        }
       }
 
       // If combined hours is STILL less than 8.0, prompt for remaining capacity!

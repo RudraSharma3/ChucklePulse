@@ -223,6 +223,7 @@ export function buildNonWorkActivityCard(params: {
   inputPhrase: string;
 }) {
   return {
+    text: `⚠️ *Invalid Task Entry: "${params.inputPhrase}"*\n❌ Personal activities cannot be logged as company work tasks.\n\n👉 *If you worked on company tasks:* Please reply with your actual project & tasks (e.g. "3h on feature development" or "3h on testing").\n🏖️ *If you took time off or left early:* Reply with "half day leave" or "personal leave".\n⏳ *If you had no tasks assigned:* Reply with "awaiting tasks".`,
     cardsV2: [
       {
         cardId: `nonwork-${Date.now()}`,

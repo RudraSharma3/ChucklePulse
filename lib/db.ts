@@ -38,6 +38,26 @@ const DEFAULT_SETTINGS: CompanySettings = {
   theme: "light"
 };
 
+function normalizeDate(dateStr?: string): string {
+  if (!dateStr) return "";
+  const clean = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  const parsed = new Date(clean);
+  if (!isNaN(parsed.getTime())) {
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: process.env.TIMEZONE || "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).format(parsed);
+    } catch (e) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+  return clean.toLowerCase();
+}
+
 function readFile<T>(filePath: string, seedFileName: string, fallback: T): T {
   try {
     if (fs.existsSync(filePath)) {
@@ -141,11 +161,29 @@ export const db = {
     } catch (e) {}
   },
   getStandups: (): StandupRecord[] => {
-    return readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
+    const raw = readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
+    const map = new Map<string, StandupRecord>();
+    raw.forEach(s => {
+      if (!s || !s.email) return;
+      const key = `${s.email.trim().toLowerCase()}::${normalizeDate(s.date)}`;
+      if (!map.has(key)) {
+        map.set(key, s);
+      } else {
+        const existing = map.get(key)!;
+        const existingTime = existing.id?.startsWith("std_") ? parseInt(existing.id.replace(/\D/g, "")) || 0 : 0;
+        const newTime = s.id?.startsWith("std_") ? parseInt(s.id.replace(/\D/g, "")) || 0 : 0;
+        if (newTime >= existingTime) {
+          map.set(key, s);
+        }
+      }
+    });
+    return Array.from(map.values());
   },
   saveStandup: (record: StandupRecord): StandupRecord[] => {
     const list = db.getStandups();
-    const idx = list.findIndex(s => s.email.toLowerCase() === record.email.toLowerCase() && s.date === record.date);
+    const recEmail = record.email.trim().toLowerCase();
+    const recDate = normalizeDate(record.date);
+    const idx = list.findIndex(s => s.email.trim().toLowerCase() === recEmail && normalizeDate(s.date) === recDate);
     if (idx >= 0) {
       list[idx] = record;
     } else {

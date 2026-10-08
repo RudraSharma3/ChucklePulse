@@ -21,6 +21,7 @@ export function parseStandupMessage(text: string): {
   isOnlyHours: boolean;
   isAwaitingTask: boolean;
   isOnLeave: boolean;
+  isNonWorkActivity: boolean;
   tasks: string;
   taskList: string[];
   blocker: string;
@@ -37,9 +38,10 @@ export function parseStandupMessage(text: string): {
   const onlyHoursMatch = clean.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h)?$/i);
   const isOnlyHours = Boolean(onlyHoursMatch && parseFloat(onlyHoursMatch[1]) > 0 && parseFloat(onlyHoursMatch[1]) <= 24);
 
-  // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave)
+  // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave, Non-work)
   const isAwaitingTask = /^(?:i\s+)?(?:didnt\s+get|didn\'t\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench)$/i.test(lower);
-  const isOnLeave = /on\s+leave|sick\s+leave|day\s+off|vacation|out\s+of\s+office|holiday|taking\s+leave/i.test(lower);
+  const isOnLeave = /on\s+leave|sick\s+leave|day\s+off|vacation|out\s+of\s+office|holiday|taking\s+leave|personal\s+leave|half\s+day\s+leave|half\s+day/i.test(lower);
+  const isNonWorkActivity = /\b(personal\s+work|personal\s+stuff|personal\s+errand|personal\s+errands|personal\s+task|personal\s+tasks|private\s+work|non[\s-]work|errands?|timepass)\b/i.test(lower) || /^(?:personal|break|lunch|gym|chill|chilling|idle|nothing|timepass)$/i.test(lower);
 
   if (isAwaitingTask) {
     return {
@@ -49,6 +51,7 @@ export function parseStandupMessage(text: string): {
       isOnlyHours: false,
       isAwaitingTask: true,
       isOnLeave: false,
+      isNonWorkActivity: false,
       tasks: "Awaiting task allocation",
       taskList: ["Awaiting task allocation"],
       blocker: "Waiting for task allocation"
@@ -62,6 +65,7 @@ export function parseStandupMessage(text: string): {
       isOnlyHours: false,
       isAwaitingTask: false,
       isOnLeave: true,
+      isNonWorkActivity: false,
       tasks: "On Leave",
       taskList: ["On Leave"],
       blocker: "None"
@@ -126,6 +130,7 @@ export function parseStandupMessage(text: string): {
       isOnlyHours: false,
       isAwaitingTask: false,
       isOnLeave: false,
+      isNonWorkActivity: false,
       tasks,
       taskList,
       blocker
@@ -238,6 +243,7 @@ export function parseStandupMessage(text: string): {
     isOnlyHours,
     isAwaitingTask: false,
     isOnLeave: false,
+    isNonWorkActivity,
     tasks,
     taskList,
     blocker

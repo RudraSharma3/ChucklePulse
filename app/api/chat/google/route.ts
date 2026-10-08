@@ -5,6 +5,7 @@ import {
   buildStandupConfirmationCard,
   buildHoursRequestCard,
   buildRemainingHoursCard,
+  buildNonWorkActivityCard,
   buildInteractiveCard,
   buildSuccessCard,
   formatLocalTime,
@@ -360,6 +361,16 @@ export async function POST(req: NextRequest) {
 
     // Parse the incoming message
     const parsed = parseStandupMessage(cleanText);
+
+    // If message is a non-work activity (e.g. "personal work", "personal stuff", "break", etc.), reject as invalid task entry
+    if (parsed.isNonWorkActivity) {
+      const nonWorkCard = buildNonWorkActivityCard({
+        userName: firstName,
+        inputPhrase: cleanText
+      });
+      return chatJson(formatChatResponse(nonWorkCard));
+    }
+
     const now = new Date();
     const timeStr = formatLocalTime(now);
     const dateStr = formatLocalDate(now);

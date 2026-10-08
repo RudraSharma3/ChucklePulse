@@ -53,6 +53,7 @@ export default function StandupDashboard() {
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [webhookCopied, setWebhookCopied] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Search & Filters
   const [dateFilter, setDateFilter] = useState<"today" | "all">("today");
@@ -133,13 +134,13 @@ export default function StandupDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const [resStd, resEmp, resSet] = await Promise.all([
-        fetch("/api/standups").then(r => r.json()),
-        fetch("/api/employees").then(r => r.json()),
-        fetch("/api/settings").then(r => r.json())
+        fetch("/api/standups", { cache: "no-store" }).then(r => r.json()),
+        fetch("/api/employees", { cache: "no-store" }).then(r => r.json()),
+        fetch("/api/settings", { cache: "no-store" }).then(r => r.json())
       ]);
 
       let fetchedStandups: StandupRecord[] = Array.isArray(resStd) ? resStd : [];
@@ -180,16 +181,38 @@ export default function StandupDashboard() {
         localStorage.setItem("bytepx_standups_cache", JSON.stringify(fetchedStandups));
         localStorage.setItem("bytepx_employees_cache", JSON.stringify(fetchedEmployees));
       } catch (e) {}
-      setSettings(resSet);
+      if (resSet) setSettings(resSet);
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
+      setSyncing(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    // Initial fetch with full loader
+    fetchData(true);
+
+    // Real-time background auto-polling every 4 seconds
+    const pollInterval = setInterval(() => {
+      fetchData(false);
+    }, 4000);
+
+    // Instant refresh when user tabs back into the dashboard window
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        fetchData(false);
+      }
+    };
+    window.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
   }, []);
 
   // Helper to accurately identify if a record belongs to today
@@ -546,6 +569,18 @@ export default function StandupDashboard() {
 
           {/* Right Action Bar with Theme Icon */}
           <div className="flex items-center flex-wrap gap-2.5 w-full md:w-auto">
+            {/* Live Auto-Refresh Button */}
+            <button
+              onClick={() => {
+                setSyncing(true);
+                fetchData(false);
+              }}
+              title="Click to sync latest standups now (Auto-refreshes every 4s)"
+              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center justify-center shadow-sm cursor-pointer group"
+            >
+              <RefreshCw className={`w-4 h-4 text-emerald-600 dark:text-emerald-400 ${syncing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
+            </button>
+
             {/* Minimalist Sun/Moon Theme Symbol */}
             <button
               onClick={toggleTheme}

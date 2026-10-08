@@ -152,18 +152,40 @@ export function parseStandupMessage(text: string): {
     hasExplicitHours = true;
   }
 
-  // 5. Extract Single Project Name
-  const explicitMatch = textWithoutBlocker.match(/(?:project|initiative|feature|repo)[:\s-]([a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
-  const actionMatch = textWithoutBlocker.match(/(?:(?:i\s+will\s+be|i\s+will|will\s+be|will|i\s+am|i\'m|im)\s+)?(?:working on|working in|work on|work in|focusing on|assigned to|developing|building|debugging|refactoring|testing)\s+(?:the\s+)?(project\s+[a-zA-Z0-9\s_&-]+?|[a-zA-Z0-9\s_&-]+?)(?=(?:\s+(?:for|then|next|and|with|after|approx|around|\d+\s*(?:hrs?|hours?|hoyrs?|h\b)|blocker|blocked)|\s*[,;.\n\r()]|$))/i);
-  const projectMatch = explicitMatch || actionMatch;
+  // 5. Extract Single Project Name with Smart Priority
+  const STOP_WORDS = /^(today|yesterday|tomorrow|tasks?|work|something|now|morning|afternoon|this|the|any|next|me|us|him|her|them|myself|ourselves|tickets?|ticket|full|part|assigned|for|and|with|on|in|at)$/i;
 
-  if (projectMatch && projectMatch[1].trim().length >= 1 && projectMatch[1].trim().length <= 35) {
-    let candidate = projectMatch[1].trim();
-    if (!/^(today|yesterday|tomorrow|tasks|work|something|now|morning|afternoon|this|the|any|next)$/i.test(candidate)) {
-      if (candidate.length <= 2 && !candidate.toLowerCase().includes('project')) {
-        candidate = 'Project ' + candidate.toUpperCase();
-      }
-      project = capitalizeWords(candidate);
+  // 5A. [Name] project e.g. "Cygnos project", "Cygnos Project", "Apollo project"
+  const suffixMatch = textWithoutBlocker.match(/\b([a-zA-Z0-9_-]{2,25})\s+project\b/i);
+  if (suffixMatch && !STOP_WORDS.test(suffixMatch[1])) {
+    project = capitalizeWords(suffixMatch[1].trim());
+  }
+
+  // 5B. Project: [Name] or Project [Name] e.g. "project Apollo", "Project - Pegasus", "project X"
+  if (!project) {
+    const explicitMatch = textWithoutBlocker.match(/\bproject[:\s-]+([a-zA-Z0-9_-]+)/i);
+    if (explicitMatch && !STOP_WORDS.test(explicitMatch[1])) {
+      let name = explicitMatch[1].trim();
+      if (name.length === 1) name = 'Project ' + name.toUpperCase();
+      project = capitalizeWords(name);
+    }
+  }
+
+  // 5C. Quoted project / feature names e.g. "AI adoption", 'Payment Gateway'
+  if (!project) {
+    const quotedMatch = textWithoutBlocker.match(/["']([^"']{2,30})["']/);
+    if (quotedMatch && !STOP_WORDS.test(quotedMatch[1])) {
+      project = capitalizeWords(quotedMatch[1].trim());
+    }
+  }
+
+  // 5D. Action phrases: "work on Cygnos full time", "working on Pegasus", "focusing on Apollo"
+  if (!project) {
+    const actionMatch = textWithoutBlocker.match(/(?:(?:i\s+will\s+be|i\s+will|will\s+be|will|i\s+am|i\'m|im)\s+)?(?:working on|working in|work on|work in|focusing on|focus on|developing|building|debugging|refactoring|testing)\s+(?:the\s+)?(?:project\s+)?([a-zA-Z0-9_-]+)/i);
+    if (actionMatch && !STOP_WORDS.test(actionMatch[1])) {
+      let name = actionMatch[1].trim();
+      if (name.length === 1) name = 'Project ' + name.toUpperCase();
+      project = capitalizeWords(name);
     }
   }
 

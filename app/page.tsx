@@ -55,6 +55,7 @@ export default function StandupDashboard() {
   const [webhookCopied, setWebhookCopied] = useState(false);
 
   // Search & Filters
+  const [dateFilter, setDateFilter] = useState<"today" | "all">("today");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
   const [selectedProject, setSelectedProject] = useState("all");
@@ -226,9 +227,43 @@ export default function StandupDashboard() {
     fetchData();
   }, []);
 
-  // Filtered Standups
+  // Helper to accurately identify if a record belongs to today
+  const isTodayDate = (dateStr?: string): boolean => {
+    if (!dateStr) return false;
+    const now = new Date();
+    const todayISO = now.toISOString().slice(0, 10);
+    const todayLocal = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(now);
+
+    const clean = dateStr.trim().toLowerCase();
+    if (clean === todayISO || clean === todayLocal) return true;
+
+    const todayEnUS = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toLowerCase();
+    if (clean === todayEnUS) return true;
+
+    const parsedDate = new Date(dateStr);
+    if (!isNaN(parsedDate.getTime())) {
+      const pISO = parsedDate.toISOString().slice(0, 10);
+      return pISO === todayISO || pISO === todayLocal;
+    }
+    return false;
+  };
+
+  // Standups for the active view date mode (today vs all history)
+  const dateFilteredStandups = useMemo(() => {
+    if (dateFilter === "today") {
+      return standups.filter(s => isTodayDate(s.date));
+    }
+    return standups;
+  }, [standups, dateFilter]);
+
+  // Filtered Standups with Search & Dept/Project/Blocker filters applied
   const filteredStandups = useMemo(() => {
-    return standups.filter(s => {
+    return dateFilteredStandups.filter(s => {
       const matchQuery =
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.project.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -239,7 +274,7 @@ export default function StandupDashboard() {
       const matchBlocker = !onlyBlockers || (s.blocker && s.blocker !== "None");
       return matchQuery && matchDept && matchProj && matchBlocker;
     });
-  }, [standups, searchQuery, selectedDept, selectedProject, onlyBlockers]);
+  }, [dateFilteredStandups, searchQuery, selectedDept, selectedProject, onlyBlockers]);
 
   // Group Standups by Project
   const projectGroups = useMemo(() => {
@@ -277,10 +312,11 @@ export default function StandupDashboard() {
 
   // Summary Metrics
   const metrics = useMemo(() => {
-    const totalHours = standups.reduce((acc, s) => acc + (s.hours || 0), 0);
-    const uniqueProjects = new Set(standups.map(s => s.project || "General Tasks")).size;
-    const activeBlockers = standups.filter(s => s.blocker && s.blocker !== "None").length;
-    const checkinCount = standups.length;
+    const activeList = dateFilteredStandups;
+    const totalHours = activeList.reduce((acc, s) => acc + (s.hours || 0), 0);
+    const uniqueProjects = new Set(activeList.map(s => s.project || "General Tasks")).size;
+    const activeBlockers = activeList.filter(s => s.blocker && s.blocker !== "None").length;
+    const checkinCount = activeList.length;
     const totalEmployees = employees.length;
     const checkinRate = totalEmployees > 0 ? Math.round((checkinCount / totalEmployees) * 100) : 0;
 
@@ -292,16 +328,17 @@ export default function StandupDashboard() {
       totalEmployees,
       checkinRate
     };
-  }, [standups, employees]);
+  }, [dateFilteredStandups, employees]);
 
-  // Attendance lists
-  const checkedInEmails = useMemo(() => new Set(standups.map(s => s.email.toLowerCase())), [standups]);
+  // Daily Live Attendance (Always strictly tracks TODAY's check-ins)
+  const todaysStandups = useMemo(() => standups.filter(s => isTodayDate(s.date)), [standups]);
+  const checkedInEmails = useMemo(() => new Set(todaysStandups.map(s => s.email.toLowerCase())), [todaysStandups]);
   const checkedInEmployees = useMemo(() => employees.filter(e => checkedInEmails.has(e.email.toLowerCase())), [employees, checkedInEmails]);
   const pendingEmployees = useMemo(() => employees.filter(e => !checkedInEmails.has(e.email.toLowerCase())), [employees, checkedInEmails]);
 
   const projectOptions = useMemo(() => {
-    return Array.from(new Set(standups.map(s => s.project || "General Tasks")));
-  }, [standups]);
+    return Array.from(new Set(dateFilteredStandups.map(s => s.project || "General Tasks")));
+  }, [dateFilteredStandups]);
 
   // 1-Click Broadcast Standup Trigger
   const handleTriggerBot = async () => {
@@ -744,13 +781,41 @@ export default function StandupDashboard() {
             </button>
           </nav>
 
-          {/* Global Search & Export Buttons */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+          {/* Global Search, Date Switcher & Action Buttons */}
+          <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto">
+            {/* Date View Switcher (Today vs All History) */}
+            <div className="flex items-center p-1 rounded-xl bg-slate-200/70 dark:bg-[#111111] border border-slate-200 dark:border-zinc-800">
+              <button
+                onClick={() => setDateFilter("today")}
+                title="View today's live standups and check-in roster"
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  dateFilter === "today"
+                    ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black shadow-sm font-bold"
+                    : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${dateFilter === "today" ? "bg-emerald-600 dark:bg-black animate-pulse" : "bg-slate-400"}`}></span>
+                Today ({todaysStandups.length})
+              </button>
+              <button
+                onClick={() => setDateFilter("all")}
+                title="View all historical standup records"
+                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  dateFilter === "all"
+                    ? "bg-white dark:bg-emerald-500 text-emerald-700 dark:text-black shadow-sm font-bold"
+                    : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                All History ({standups.length})
+              </button>
+            </div>
+
+            <div className="relative flex-1 sm:w-56">
               <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search project, task, member..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs md:text-sm bg-white dark:bg-[#111111] border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-800 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-emerald-500 shadow-sm transition-all"
@@ -1307,7 +1372,7 @@ export default function StandupDashboard() {
                 ) : (
                   <div className="space-y-3">
                     {checkedInEmployees.map(emp => {
-                      const empStandup = standups.find(s => s.email.toLowerCase() === emp.email.toLowerCase());
+                      const empStandup = todaysStandups.find(s => s.email.toLowerCase() === emp.email.toLowerCase());
                       return (
                         <div key={emp.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#141414] border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">

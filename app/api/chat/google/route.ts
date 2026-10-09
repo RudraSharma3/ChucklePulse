@@ -370,21 +370,38 @@ export async function POST(req: NextRequest) {
       s => s.email.toLowerCase() === (userEmail || "").toLowerCase() && s.date === dateStr
     );
 
-    // Determine if this message is a fresh standalone multi-project standup (rather than replying with hours to an existing draft)
-    const isNewDetailedStandup = !parsed.isOnlyHours && parsed.hasExplicitHours && (parsed.taskList.length > 1 || (parsed.tasks && parsed.tasks.length > 25 && parsed.tasks !== cleanText));
+    // Check if user explicitly asked to reset/cancel draft
+    const isExplicitReset = /^(?:reset|cancel|start\s*over|restart|clear|new\s*standup)$/i.test(cleanText.trim());
+    if (existingDraft && isExplicitReset) {
+      db.clearPendingDraft(userKey);
+      const promptCard = buildStandupPromptCard({
+        userName: firstName,
+        prompt: "Draft cleared! What are your fresh planned tasks and hours for today?"
+      });
+      return chatJson(formatChatResponse(promptCard));
+    }
+
+    // A message is only a complete standalone replacement if it provides a full 8+ hours standup
+    const isFullStandaloneStandup = parsed.hours >= 8.0;
 
     // =========================================================================
-    // CASE 1: USER IS REPLYING TO AN EXISTING DRAFT (HOURS OR REMAINING TASKS)
+    // CASE 1: USER IS REPLYING TO AN EXISTING DRAFT (CONTINUING THE FLOW)
     // =========================================================================
-    if (existingDraft && !isNewDetailedStandup) {
+    if (existingDraft && !isFullStandaloneStandup) {
       let combinedHours = 8.0;
       let combinedTasks = existingDraft.tasks;
       let combinedProject = existingDraft.project;
       let combinedBlocker = existingDraft.blocker || parsed.blocker || 'None';
 
       if (parsed.isOnlyHours) {
-        // User is answering "How many hours for today?" (e.g. "8 hours", "8h", "8")
-        combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
+        // User answered with just a number/hours (e.g. "1h", "1 hour", "8")
+        if (existingDraft.hours && existingDraft.hours > 0) {
+          // Add to previous hours (e.g. 7h + 1h = 8h)
+          combinedHours = +(existingDraft.hours + parsed.hours).toFixed(1);
+        } else {
+          // Draft had 0 hours and was waiting for total hours
+          combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
+        }
       } else if (parsed.isOnLeave || /half\s+day|day\s+off|leave/i.test(lowerText)) {
         combinedHours = existingDraft.hours || 4.0;
         combinedTasks = `${existingDraft.tasks} (Half-Day Leave)`;
@@ -396,19 +413,23 @@ export async function POST(req: NextRequest) {
         combinedTasks = `${existingDraft.tasks} (${existingDraft.hours || 0} hrs), Awaiting Tasks (${rem} hrs)`;
         combinedBlocker = `Awaiting task allocation for ${rem} hrs`;
       } else if (existingDraft.hours && existingDraft.hours > 0) {
-        // User had partial hours previously (e.g. 5.0h) and is providing additional hours / tasks
-        const addHours = parsed.hours > 0 ? parsed.hours : (existingDraft.remainingHours || (8.0 - existingDraft.hours));
+        // User had partial hours previously (e.g. 7.0h) and is filling the remaining hours
+        const addHours = parsed.hours > 0 ? parsed.hours : (existingDraft.remainingHours || +(8.0 - existingDraft.hours).toFixed(1));
         combinedHours = +(existingDraft.hours + addHours).toFixed(1);
-        if (parsed.tasks && parsed.tasks !== cleanText) {
-          combinedTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${parsed.tasks} (${addHours}h)`;
-        } else if (!parsed.isOnlyHours) {
-          combinedTasks = `${existingDraft.tasks} (${existingDraft.hours}h), ${cleanText} (${addHours}h)`;
+
+        // Extract task description, stripping any leading hours prefix like "1 hours --" or "1h -"
+        let newTaskDesc = parsed.tasks && parsed.tasks !== cleanText ? parsed.tasks : cleanText;
+        newTaskDesc = newTaskDesc.replace(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)?\s*[-–—:]*\s*/i, '').trim();
+
+        if (newTaskDesc && !parsed.isOnlyHours) {
+          combinedTasks = `${existingDraft.tasks}, ${newTaskDesc} (${addHours}h)`;
         }
-        if (parsed.project && parsed.project !== 'Daily Tasks' && parsed.project !== existingDraft.project) {
-          combinedProject = `${existingDraft.project} & ${parsed.project}`;
+
+        if (parsed.project && parsed.project !== 'Daily Tasks' && parsed.project !== 'General Tasks' && !existingDraft.project.toLowerCase().includes(parsed.project.toLowerCase())) {
+          combinedProject = `${existingDraft.project} + ${parsed.project}`;
         }
       } else {
-        // User had no hours previously and is now providing hours for the task
+        // User had no hours previously and is now providing tasks & hours
         combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
         if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 5 && !parsed.isOnlyHours) {
           combinedTasks = `${existingDraft.tasks}, ${parsed.tasks}`;

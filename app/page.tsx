@@ -108,7 +108,11 @@ export default function StandupDashboard() {
       if (cachedEmpRaw) {
         const parsed: Employee[] = JSON.parse(cachedEmpRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setEmployees(parsed);
+          const cleaned = parsed.filter(e => {
+            const em = (e.email || '').toLowerCase().trim();
+            return em !== 'mala.das@bytepx.com' && em !== 'deepika.pal@bytepx.com';
+          });
+          setEmployees(cleaned);
         }
       }
     } catch (e) {}
@@ -144,7 +148,12 @@ export default function StandupDashboard() {
       ]);
 
       let fetchedStandups: StandupRecord[] = Array.isArray(resStd) ? resStd : [];
-      let fetchedEmployees: Employee[] = Array.isArray(resEmp) ? resEmp : [];
+      let fetchedEmployees: Employee[] = Array.isArray(resEmp)
+        ? resEmp.filter(e => {
+            const em = (e.email || '').toLowerCase().trim();
+            return em !== 'mala.das@bytepx.com' && em !== 'deepika.pal@bytepx.com';
+          })
+        : [];
 
       // LocalStorage Persistence Layer for Standups: Ensures recorded standups are preserved and deduplicated
       try {

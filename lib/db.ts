@@ -18,9 +18,13 @@ const STD_FILE = path.join(DATA_DIR, 'standups.json');
 const SET_FILE = path.join(DATA_DIR, 'settings.json');
 
 const DEFAULT_EMPLOYEES: Employee[] = [
-  { id: 'emp_1', name: 'Tanmay Jain', email: 'tanmay.jain@bytepx.com', dept: 'Engineering', role: 'DE Intern' },
-  { id: 'emp_2', name: 'Rudra Sharma', email: 'rudra@bytepx.com', dept: 'AI / ML', role: 'Associate ML Engineer' },
-  { id: 'emp_3', name: 'Pavana', email: 'pavana@bytepx.com', dept: 'Delivery', role: 'Delivery Head' }
+  { id: 'emp_1', name: 'Tanmay Jain', email: 'tanmay.jain@bytepx.com', dept: 'IT', role: 'DE Intern', webhookUrl: 'spaces/yDtLmqAAAAE' },
+  { id: 'emp_2', name: 'Rudra Sharma', email: 'rudra@bytepx.com', dept: 'IT', role: 'Associate ML Engineer', webhookUrl: 'spaces/iJ9VmqAAAAE' },
+  { id: 'emp_3', name: 'Pavana', email: 'pavana@bytepx.com', dept: 'Delivery', role: 'Delivery Head' },
+  { id: 'emp_4', name: 'Prerna', email: 'prerna@bytepx.com', dept: 'Engineering', role: 'Team Member', webhookUrl: 'spaces/qaffWqAAAAE' },
+  { id: 'emp_5', name: 'Rohit Gautam', email: 'rohit@bytepx.com', dept: 'Engineering', role: 'Team Member' },
+  { id: 'emp_6', name: 'Mala Das', email: 'mala@bytepx.com', dept: 'Engineering', role: 'Team Member' },
+  { id: 'emp_7', name: 'Deepika Pal', email: 'deepika@bytepx.com', dept: 'Engineering', role: 'Team Member' }
 ];
 
 const DEFAULT_SETTINGS: CompanySettings = {
@@ -87,9 +91,38 @@ function writeFile<T>(filePath: string, data: T): boolean {
 
 function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; changed: boolean } {
   const seenSpaces = new Map<string, string>(); // spaceName -> email
+  const seenEmails = new Map<string, Employee>();
   let changed = false;
 
-  const sanitized = employees.map(emp => {
+  // Filter out any legacy invalid email addresses
+  const filtered = employees.filter(emp => {
+    if (!emp || !emp.email) return false;
+    const cleanEmail = emp.email.trim().toLowerCase();
+    if (cleanEmail === 'mala.das@bytepx.com' || cleanEmail === 'deepika.pal@bytepx.com') {
+      changed = true;
+      return false;
+    }
+    return true;
+  });
+
+  if (filtered.length !== employees.length) changed = true;
+
+  // Deduplicate by clean email
+  filtered.forEach(emp => {
+    const cleanEmail = emp.email.trim().toLowerCase();
+    if (!seenEmails.has(cleanEmail)) {
+      seenEmails.set(cleanEmail, emp);
+    } else {
+      const existing = seenEmails.get(cleanEmail)!;
+      // If the duplicate has a webhook space and existing doesn't, upgrade to it
+      if (!existing.webhookUrl && emp.webhookUrl) {
+        seenEmails.set(cleanEmail, { ...existing, webhookUrl: emp.webhookUrl });
+      }
+      changed = true;
+    }
+  });
+
+  const sanitized = Array.from(seenEmails.values()).map(emp => {
     let cleanWebhook = emp.webhookUrl ? emp.webhookUrl.trim() : '';
     const cleanEmail = (emp.email || '').trim().toLowerCase();
 

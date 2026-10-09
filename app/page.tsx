@@ -547,37 +547,36 @@ export default function StandupDashboard() {
       <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-6">
         
         {/* Top Header */}
-        <header className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-2xl transition-all">
-          <div className="flex items-center gap-4">
+        <header className="bg-white dark:bg-[#0c0c0c] rounded-2xl p-5 md:p-6 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 border border-slate-200 dark:border-zinc-800 shadow-sm dark:shadow-2xl transition-all">
+          <div className="flex items-center gap-4 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-black shrink-0">
               <Bot className="w-7 h-7" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 whitespace-nowrap">
                   BytePx <span className="text-emerald-600 dark:text-emerald-400 font-semibold">StandupPulse</span>
                 </h1>
-                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span> Google Chat Bot Live
                 </span>
                 <button
                   onClick={() => setActiveTab("settings")}
                   title="Click to customize Standup Time & Auto-Nudge Interval"
-                  className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 flex items-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all cursor-pointer"
+                  className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 flex items-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all cursor-pointer whitespace-nowrap"
                 >
-                  <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                  <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   <span>{settings?.standupTime || "10:30"} AM Daily • {settings?.autoNudgeEnabled !== false ? `${settings?.nudgeIntervalMinutes || 45}m Nudge` : "Nudge Off"}</span>
                 </button>
               </div>
               <p className="text-xs md:text-sm text-slate-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5" /> {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} • <Clock className="w-3.5 h-3.5 ml-1" /> {currentTime || "Live"}
+                <Calendar className="w-3.5 h-3.5 shrink-0" /> {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} • <Clock className="w-3.5 h-3.5 ml-1 shrink-0" /> {currentTime || "Live"}
               </p>
-
             </div>
           </div>
 
-          {/* Right Action Bar with Theme Icon */}
-          <div className="flex items-center flex-wrap gap-2.5 w-full md:w-auto">
+          {/* Right Action Bar strictly in a single horizontal row */}
+          <div className="flex items-center flex-nowrap overflow-x-auto gap-2 shrink-0 max-w-full">
             {/* Live Auto-Refresh Button */}
             <button
               onClick={() => {
@@ -585,7 +584,7 @@ export default function StandupDashboard() {
                 fetchData(false);
               }}
               title="Click to sync latest standups now (Auto-refreshes every 4s)"
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center justify-center shadow-sm cursor-pointer group"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center justify-center shadow-sm cursor-pointer shrink-0 group"
             >
               <RefreshCw className={`w-4 h-4 text-emerald-600 dark:text-emerald-400 ${syncing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
             </button>
@@ -594,37 +593,37 @@ export default function StandupDashboard() {
             <button
               onClick={toggleTheme}
               title={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-              className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center justify-center shadow-sm cursor-pointer group"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center justify-center shadow-sm cursor-pointer shrink-0 group"
             >
               {theme === "light" ? (
-                <Moon className="w-5 h-5 text-emerald-600 group-hover:-rotate-12 transition-transform" />
+                <Moon className="w-4 h-4 md:w-5 md:h-5 text-emerald-600 group-hover:-rotate-12 transition-transform" />
               ) : (
-                <Sun className="w-5 h-5 text-amber-400 group-hover:rotate-45 transition-transform" />
+                <Sun className="w-4 h-4 md:w-5 md:h-5 text-amber-400 group-hover:rotate-45 transition-transform" />
               )}
             </button>
 
             <button
               onClick={() => setShowManualStandup(true)}
-              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+              className="px-3 md:px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center gap-1.5 md:gap-2 shadow-sm cursor-pointer shrink-0 whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Log Check-in
+              <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" /> <span>Log Check-in</span>
             </button>
 
             <button
               onClick={handleCopySummary}
-              className="px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+              className="px-3 md:px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#161616] dark:hover:bg-[#222222] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 transition-all flex items-center gap-1.5 md:gap-2 shadow-sm cursor-pointer shrink-0 whitespace-nowrap"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-              {copied ? "Copied!" : "Copy Briefing"}
+              {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" /> : <Copy className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+              <span>{copied ? "Copied!" : "Copy Briefing"}</span>
             </button>
 
             <button
               onClick={handleTriggerBot}
               disabled={triggering}
-              className="px-4 py-2 text-xs md:text-sm font-bold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black shadow-md shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="px-3.5 md:px-4 py-2 text-xs md:text-sm font-bold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5 md:gap-2 disabled:opacity-50 cursor-pointer shrink-0 whitespace-nowrap"
             >
-              {triggering ? <RefreshCw className="w-4 h-4 animate-spin text-black" /> : <Send className="w-4 h-4 text-black" />}
-              {triggering ? "Sending..." : "Send Bot"}
+              {triggering ? <RefreshCw className="w-4 h-4 animate-spin text-black shrink-0" /> : <Send className="w-4 h-4 text-black shrink-0" />}
+              <span>{triggering ? "Sending..." : "Send Bot"}</span>
             </button>
           </div>
         </header>

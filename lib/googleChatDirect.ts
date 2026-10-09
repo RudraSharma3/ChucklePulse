@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { db } from './db';
-import { buildStandupPromptCard } from './googleChatHelper';
+import { buildStandupPromptCard, buildRemainingHoursCard } from './googleChatHelper';
 
 interface ServiceAccountCredentials {
   client_email: string;
@@ -334,14 +334,29 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     }
 
     const firstName = emp.name.split(' ')[0] || "Champion";
-    const promptText = isNudge
-      ? "⏰ Friendly Standup Reminder! Just checking in—did you get a chance to log your tasks and hours for today?"
-      : (settings.botPrompt || "Good morning champion! ☕ What epic tasks are you tackling today?");
+    const userKey = emp.email.toLowerCase();
+    const draft = isNudge ? (db.getPendingDraft(userKey) || db.getPendingDraft(emp.name.toLowerCase())) : null;
 
-    const card = buildStandupPromptCard({
-      userName: firstName,
-      prompt: promptText
-    });
+    let card;
+    if (isNudge && draft && draft.hours && draft.hours > 0 && draft.remainingHours > 0) {
+      // Personalized follow-up showing logged hours so far & asking for remainder
+      card = buildRemainingHoursCard({
+        userName: firstName,
+        project: draft.project,
+        tasks: draft.tasks,
+        loggedHours: draft.hours,
+        remainingHours: draft.remainingHours
+      });
+    } else {
+      const promptText = isNudge
+        ? "⏰ Friendly Standup Reminder! Just checking in—did you get a chance to log your tasks and hours for today?"
+        : (settings.botPrompt || "Good morning champion! ☕ What epic tasks are you tackling today?");
+
+      card = buildStandupPromptCard({
+        userName: firstName,
+        prompt: promptText
+      });
+    }
 
     const result = await sendDirectMessageToSpace(spaceName, card);
     if (result.success) {

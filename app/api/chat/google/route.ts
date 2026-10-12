@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
 
       // Branch 2A: Handle Remaining Hours Selection (submitRemaining)
       if (paramsMap.actionName === 'submitRemaining') {
-        const draft = db.getPendingDraft(userKey);
+        const draft = await db.getPendingDraft(userKey, spaceName, userName);
         const buttonType = paramsMap.type || 'same_project';
         const remHours = parseFloat(paramsMap.hours || '3.0') || 3.0;
         const primaryHrs = draft && draft.hours ? draft.hours : 5.0;
@@ -213,8 +213,8 @@ export async function POST(req: NextRequest) {
           source: "Google Chat 1:1 Bot (Interactive)"
         };
 
-        db.saveStandup(record);
-        db.clearPendingDraft(userKey);
+        await db.saveStandup(record);
+        await db.clearPendingDraft(userKey, spaceName, userName);
 
         const confirmationCard = buildStandupConfirmationCard({
           employeeName: record.name,
@@ -233,18 +233,18 @@ export async function POST(req: NextRequest) {
       if (hoursParam) {
         const parsedFloat = parseFloat(hoursParam.trim());
         const selectedHours = Number.isFinite(parsedFloat) && parsedFloat >= 0 && parsedFloat <= 24 ? parsedFloat : 8.0;
-        const draft = db.getPendingDraft(userKey);
+        const draft = await db.getPendingDraft(userKey, spaceName, userName);
 
         // If selected hours is less than 8.0, prompt for remaining capacity!
         if (selectedHours < 8.0) {
           const remaining = +(8.0 - selectedHours).toFixed(1);
-          db.savePendingDraft(userKey, {
+          await db.savePendingDraft(userKey, {
             tasks: draft?.tasks || "",
             project: draft?.project || "",
             blocker: draft?.blocker || "None",
             hours: selectedHours,
             remainingHours: remaining
-          });
+          }, spaceName, userName);
 
           const capacityCard = buildRemainingHoursCard({
             userName: firstName,
@@ -362,10 +362,10 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const timeStr = formatLocalTime(now);
     const dateStr = formatLocalDate(now);
-    const existingDraft = db.getPendingDraft(userKey);
+    const existingDraft = await db.getPendingDraft(userKey, spaceName, userName);
 
     // Check if user already submitted a standup today (to flag as update/override)
-    const existingStandups = db.getStandups();
+    const existingStandups = await db.getStandups();
     const isUpdate = existingStandups.some(
       s => s.email.toLowerCase() === (userEmail || "").toLowerCase() && s.date === dateStr
     );
@@ -373,7 +373,7 @@ export async function POST(req: NextRequest) {
     // Check if user explicitly asked to reset/cancel draft
     const isExplicitReset = /^(?:reset|cancel|start\s*over|restart|clear|new\s*standup)$/i.test(cleanText.trim());
     if (existingDraft && isExplicitReset) {
-      db.clearPendingDraft(userKey);
+      await db.clearPendingDraft(userKey, spaceName, userName);
       const promptCard = buildStandupPromptCard({
         userName: firstName,
         prompt: "Draft cleared! What are your fresh planned tasks and hours for today?"
@@ -439,14 +439,14 @@ export async function POST(req: NextRequest) {
       // If combined hours is STILL less than 8.0, prompt for remaining capacity!
       if (combinedHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
         const remaining = +(8.0 - combinedHours).toFixed(1);
-        db.savePendingDraft(userKey, {
+        await db.savePendingDraft(userKey, {
           tasks: combinedTasks,
           project: combinedProject,
           blocker: combinedBlocker,
           hours: combinedHours,
           remainingHours: remaining,
           date: dateStr
-        });
+        }, spaceName, userName);
 
         const capacityCard = buildRemainingHoursCard({
           userName: firstName,
@@ -475,8 +475,8 @@ export async function POST(req: NextRequest) {
         rawText: cleanText
       };
 
-      db.saveStandup(record);
-      db.clearPendingDraft(userKey);
+      await db.saveStandup(record);
+      await db.clearPendingDraft(userKey, spaceName, userName);
 
       const confirmationCard = buildStandupConfirmationCard({
         employeeName: record.name,
@@ -498,12 +498,12 @@ export async function POST(req: NextRequest) {
       const draftProject = parsed.project || 'Daily Tasks';
       const draftTasks = parsed.tasks || cleanText;
 
-      db.savePendingDraft(userKey, {
+      await db.savePendingDraft(userKey, {
         tasks: draftTasks,
         project: draftProject,
         blocker: parsed.blocker || 'None',
         date: dateStr
-      });
+      }, spaceName, userName);
 
       const hoursCard = buildHoursRequestCard({
         userName: firstName,
@@ -522,14 +522,14 @@ export async function POST(req: NextRequest) {
       const draftProject = parsed.project || 'Daily Tasks';
       const draftTasks = parsed.tasks || cleanText;
 
-      db.savePendingDraft(userKey, {
+      await db.savePendingDraft(userKey, {
         tasks: draftTasks,
         project: draftProject,
         blocker: parsed.blocker || 'None',
         hours: parsed.hours,
         remainingHours: remaining,
         date: dateStr
-      });
+      }, spaceName, userName);
 
       const capacityCard = buildRemainingHoursCard({
         userName: firstName,
@@ -571,8 +571,8 @@ export async function POST(req: NextRequest) {
     };
 
     // Save check-in immediately to database and cloud (replaces previous record for today)
-    db.saveStandup(record);
-    db.clearPendingDraft(userKey);
+    await db.saveStandup(record);
+    await db.clearPendingDraft(userKey, spaceName, userName);
 
     // Return Standup Confirmation Card directly
     const confirmationCard = buildStandupConfirmationCard({

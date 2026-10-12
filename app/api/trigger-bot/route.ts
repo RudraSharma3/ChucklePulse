@@ -16,7 +16,7 @@ async function handleTrigger(req: NextRequest) {
       }
     } catch (e) {}
 
-    const settings = db.getSettings();
+    const settings = await db.getSettings();
     let directSent = false;
     let directError: string | null = null;
     let serviceAccountResult: any = null;

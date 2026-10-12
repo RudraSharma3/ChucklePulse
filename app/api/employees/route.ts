@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { Employee } from "@/lib/types";
 
 export async function GET() {
-  const employees = db.getEmployees();
+  const employees = await db.getEmployees();
   return NextResponse.json(employees);
 }
 
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     // Handle Bulk Sync / Rehydration
     if (body.bulk && Array.isArray(body.employees)) {
-      const current = db.getEmployees();
+      const current = await db.getEmployees();
       const empMap = new Map<string, Employee>();
       current.forEach(e => empMap.set(e.email.toLowerCase(), e));
       body.employees.forEach((e: any) => {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         }
       });
       const merged = Array.from(empMap.values());
-      db.saveEmployees(merged);
+      await db.saveEmployees(merged);
       return NextResponse.json({ success: true, count: merged.length });
     }
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Name and Email are required" }, { status: 400 });
     }
 
-    const employees = db.getEmployees();
+    const employees = await db.getEmployees();
     const newEmp: Employee = {
       id: body.id || ("emp_" + Date.now()),
       name: body.name.trim(),
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       employees.push(newEmp);
     }
 
-    db.saveEmployees(employees);
+    await db.saveEmployees(employees);
     return NextResponse.json(newEmp, { status: 201 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 });
@@ -73,7 +73,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Employee ID is required" }, { status: 400 });
     }
 
-    const remaining = db.deleteEmployee(id);
+    const remaining = await db.deleteEmployee(id);
     return NextResponse.json({ success: true, count: remaining.length });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 });

@@ -250,9 +250,9 @@ export async function findOrCreateDmSpace(email: string, token: string): Promise
  * Broadcasts the standup prompt (or nudge) directly to all employees in 1:1 DMs via Service Account
  */
 export async function broadcastDirectStandup(isNudge: boolean = false) {
-  const settings = db.getSettings();
-  const employees = db.getEmployees();
-  const standups = db.getStandups();
+  const settings = await db.getSettings();
+  const employees = await db.getEmployees();
+  const standups = await db.getStandups();
   const today = new Date().toISOString().slice(0, 10);
 
   const completedEmails = new Set(
@@ -335,7 +335,7 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
 
     const firstName = emp.name.split(' ')[0] || "Champion";
     const userKey = emp.email.toLowerCase();
-    const draft = isNudge ? (db.getPendingDraft(userKey) || db.getPendingDraft(emp.name.toLowerCase())) : null;
+    const draft = isNudge ? (await db.getPendingDraft(userKey, spaceName, emp.name)) : null;
 
     let card;
     if (isNudge && draft && draft.hours && draft.hours > 0 && draft.remainingHours > 0) {

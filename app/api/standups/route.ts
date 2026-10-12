@@ -5,7 +5,7 @@ import { StandupRecord } from "@/lib/types";
 import { formatLocalTime, formatLocalDate } from "@/lib/googleChatHelper";
 
 export async function GET(req: NextRequest) {
-  const list = db.getStandups();
+  const list = await db.getStandups();
   return NextResponse.json(list);
 }
 
@@ -14,12 +14,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     if (body.bulk === true && Array.isArray(body.standups)) {
-      body.standups.forEach((s: StandupRecord) => {
+      for (const s of body.standups) {
         if (s && s.email && s.tasks) {
-          db.saveStandup(s);
+          await db.saveStandup(s);
         }
-      });
-      return NextResponse.json({ success: true, standups: db.getStandups() });
+      }
+      return NextResponse.json({ success: true, standups: await db.getStandups() });
     }
 
     const parsed = parseStandupMessage(body.tasks || body.rawText || "");
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       source: body.source || "Dashboard Manual"
     };
 
-    const updated = db.saveStandup(record);
+    const updated = await db.saveStandup(record);
     return NextResponse.json({ success: true, record, standups: updated });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 });
@@ -54,12 +54,12 @@ export async function DELETE(req: NextRequest) {
     const action = searchParams.get("action");
 
     if (action === "clear_all") {
-      db.clearAllStandups();
+      await db.clearAllStandups();
       return NextResponse.json({ success: true, message: "All standups cleared successfully" });
     }
 
     if (id) {
-      const updated = db.deleteStandup(id);
+      const updated = await db.deleteStandup(id);
       return NextResponse.json({ success: true, standups: updated });
     }
 

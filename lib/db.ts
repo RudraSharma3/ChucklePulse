@@ -41,6 +41,69 @@ const DEFAULT_SETTINGS: CompanySettings = {
   theme: "light"
 };
 
+// =============================================================================
+// Cloud Key-Value Storage Adapter (Vercel KV / Upstash Redis / Cloud State)
+// =============================================================================
+const REDIS_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
+const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const hasCloudKV = Boolean(REDIS_URL && REDIS_TOKEN);
+
+// Global In-Memory Cache (survives warm container invocations for sub-millisecond responses)
+let memoryStandups: StandupRecord[] | null = null;
+let memoryEmployees: Employee[] | null = null;
+let memorySettings: CompanySettings | null = null;
+const memoryDrafts: Record<string, any> = {};
+let lastStandupsSync = 0;
+let lastEmployeesSync = 0;
+
+async function cloudGet<T>(key: string): Promise<T | null> {
+  if (!hasCloudKV) return null;
+  try {
+    const res = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+      cache: 'no-store'
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.result == null) return null;
+    return typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function cloudSet<T>(key: string, value: T, exSeconds?: number): Promise<boolean> {
+  if (!hasCloudKV) return false;
+  try {
+    const url = exSeconds
+      ? `${REDIS_URL}/set/${encodeURIComponent(key)}?ex=${exSeconds}`
+      : `${REDIS_URL}/set/${encodeURIComponent(key)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REDIS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(typeof value === 'string' ? value : JSON.stringify(value))
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function cloudDel(key: string): Promise<boolean> {
+  if (!hasCloudKV) return false;
+  try {
+    const res = await fetch(`${REDIS_URL}/del/${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
 function normalizeDate(dateStr?: string): string {
   if (!dateStr) return "";
   const clean = dateStr.trim();
@@ -89,12 +152,22 @@ function writeFile<T>(filePath: string, data: T): boolean {
   }
 }
 
+function isDraftFresh(draft: any): boolean {
+  if (!draft) return false;
+  const todayStr = normalizeDate(new Date().toISOString().slice(0, 10));
+  const draftDate = normalizeDate(draft.date);
+  if (draftDate === todayStr) return true;
+  if (draft.timestamp && (Date.now() - draft.timestamp) < 18 * 60 * 60 * 1000) {
+    return true;
+  }
+  return false;
+}
+
 function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; changed: boolean } {
-  const seenSpaces = new Map<string, string>(); // spaceName -> email
+  const seenSpaces = new Map<string, string>();
   const seenEmails = new Map<string, Employee>();
   let changed = false;
 
-  // Filter out any legacy invalid email addresses
   const filtered = employees.filter(emp => {
     if (!emp || !emp.email) return false;
     const cleanEmail = emp.email.trim().toLowerCase();
@@ -107,14 +180,12 @@ function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; chan
 
   if (filtered.length !== employees.length) changed = true;
 
-  // Deduplicate by clean email
   filtered.forEach(emp => {
     const cleanEmail = emp.email.trim().toLowerCase();
     if (!seenEmails.has(cleanEmail)) {
       seenEmails.set(cleanEmail, emp);
     } else {
       const existing = seenEmails.get(cleanEmail)!;
-      // If the duplicate has a webhook space and existing doesn't, upgrade to it
       if (!existing.webhookUrl && emp.webhookUrl) {
         seenEmails.set(cleanEmail, { ...existing, webhookUrl: emp.webhookUrl });
       }
@@ -126,13 +197,11 @@ function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; chan
     let cleanWebhook = emp.webhookUrl ? emp.webhookUrl.trim() : '';
     const cleanEmail = (emp.email || '').trim().toLowerCase();
 
-    // 1. Rudra's space (spaces/iJ9VmqAAAAE) is strictly for rudra@bytepx.com
     if (cleanWebhook === 'spaces/iJ9VmqAAAAE' && cleanEmail !== 'rudra@bytepx.com') {
       cleanWebhook = '';
       changed = true;
     }
 
-    // 2. Ensure each space is uniquely assigned to only one employee (no cross-delivery)
     if (cleanWebhook && cleanWebhook.startsWith('spaces/')) {
       if (seenSpaces.has(cleanWebhook) && seenSpaces.get(cleanWebhook) !== cleanEmail) {
         cleanWebhook = '';
@@ -152,35 +221,84 @@ function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; chan
   return { employees: sanitized, changed };
 }
 
+// =============================================================================
+// Universal DB Adapter
+// =============================================================================
 export const db = {
-  getEmployees: (): Employee[] => {
-    let current = readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
-    const { employees, changed } = sanitizeEmployees(current);
-    if (changed || current.length !== employees.length) {
-      writeFile(EMP_FILE, employees);
+  getEmployees: async (): Promise<Employee[]> => {
+    const now = Date.now();
+    if (memoryEmployees && now - lastEmployeesSync < 15000) {
+      return memoryEmployees;
     }
+
+    let cloudEmployees: Employee[] | null = null;
+    if (hasCloudKV) {
+      cloudEmployees = await cloudGet<Employee[]>('employees:list');
+    }
+
+    let localEmployees = readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
+    const candidate = (cloudEmployees && cloudEmployees.length > 0) ? cloudEmployees : localEmployees;
+    const { employees: sanitized } = sanitizeEmployees(candidate);
+
+    memoryEmployees = sanitized;
+    lastEmployeesSync = now;
+    writeFile(EMP_FILE, sanitized);
+
+    if (hasCloudKV && (!cloudEmployees || cloudEmployees.length === 0)) {
+      cloudSet('employees:list', sanitized).catch(() => {});
+    }
+
+    return sanitized;
+  },
+
+  getEmployeesSync: (): Employee[] => {
+    if (memoryEmployees) return memoryEmployees;
+    const raw = readFile<Employee[]>(EMP_FILE, 'employees.json', DEFAULT_EMPLOYEES);
+    const { employees } = sanitizeEmployees(raw);
+    memoryEmployees = employees;
     return employees;
   },
-  saveEmployees: (employees: Employee[]): boolean => {
+
+  saveEmployees: async (employees: Employee[]): Promise<boolean> => {
     const { employees: sanitized } = sanitizeEmployees(employees);
+    memoryEmployees = sanitized;
+    lastEmployeesSync = Date.now();
     const success = writeFile(EMP_FILE, sanitized);
     try {
       const seedPath = path.join(SEED_DIR, 'employees.json');
       writeFile(seedPath, sanitized);
     } catch (e) {}
+
+    if (hasCloudKV) {
+      await cloudSet('employees:list', sanitized);
+    }
     return success;
   },
-  deleteEmployee: (idOrEmail: string): Employee[] => {
+
+  deleteEmployee: async (idOrEmail: string): Promise<Employee[]> => {
     const clean = idOrEmail.trim().toLowerCase();
-    const current = db.getEmployees();
+    const current = await db.getEmployees();
     const filtered = current.filter(e => e.id !== idOrEmail && e.email.toLowerCase() !== clean);
-    db.saveEmployees(filtered);
+    await db.saveEmployees(filtered);
     return filtered;
   },
-  getStandups: (): StandupRecord[] => {
-    const raw = readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
+
+  getStandups: async (): Promise<StandupRecord[]> => {
+    const now = Date.now();
+    if (memoryStandups && now - lastStandupsSync < 10000) {
+      return memoryStandups;
+    }
+
+    let cloudList: StandupRecord[] | null = null;
+    if (hasCloudKV) {
+      cloudList = await cloudGet<StandupRecord[]>('standups:list');
+    }
+
+    const localList = readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
+    const sourceList = (cloudList && cloudList.length > 0) ? cloudList : localList;
+
     const map = new Map<string, StandupRecord>();
-    raw.forEach(s => {
+    sourceList.forEach(s => {
       if (!s || !s.email) return;
       const key = `${s.email.trim().toLowerCase()}::${normalizeDate(s.date)}`;
       if (!map.has(key)) {
@@ -194,10 +312,26 @@ export const db = {
         }
       }
     });
-    return Array.from(map.values());
+
+    const finalStandups = Array.from(map.values());
+    memoryStandups = finalStandups;
+    lastStandupsSync = now;
+    writeFile(STD_FILE, finalStandups);
+
+    if (hasCloudKV && (!cloudList || cloudList.length === 0) && finalStandups.length > 0) {
+      cloudSet('standups:list', finalStandups).catch(() => {});
+    }
+
+    return finalStandups;
   },
-  saveStandup: (record: StandupRecord): StandupRecord[] => {
-    const list = db.getStandups();
+
+  getStandupsSync: (): StandupRecord[] => {
+    if (memoryStandups) return memoryStandups;
+    return readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
+  },
+
+  saveStandup: async (record: StandupRecord): Promise<StandupRecord[]> => {
+    const list = await db.getStandups();
     const recEmail = record.email.trim().toLowerCase();
     const recDate = normalizeDate(record.date);
     const idx = list.findIndex(s => s.email.trim().toLowerCase() === recEmail && normalizeDate(s.date) === recDate);
@@ -206,25 +340,46 @@ export const db = {
     } else {
       list.unshift(record);
     }
+
+    memoryStandups = list;
+    lastStandupsSync = Date.now();
     writeFile(STD_FILE, list);
+
+    if (hasCloudKV) {
+      await cloudSet('standups:list', list);
+    }
     return list;
   },
-  deleteStandup: (id: string): StandupRecord[] => {
-    let list = db.getStandups();
+
+  deleteStandup: async (id: string): Promise<StandupRecord[]> => {
+    let list = await db.getStandups();
     list = list.filter(s => s.id !== id);
+    memoryStandups = list;
+    lastStandupsSync = Date.now();
     writeFile(STD_FILE, list);
+
+    if (hasCloudKV) {
+      await cloudSet('standups:list', list);
+    }
     return list;
   },
-  clearAllStandups: (): boolean => {
-    return writeFile(STD_FILE, []);
+
+  clearAllStandups: async (): Promise<boolean> => {
+    memoryStandups = [];
+    lastStandupsSync = Date.now();
+    writeFile(STD_FILE, []);
+    if (hasCloudKV) {
+      await cloudSet('standups:list', []);
+    }
+    return true;
   },
-  registerEmployeeSpace: (email: string, spaceName: string, name?: string): Employee[] => {
+
+  registerEmployeeSpace: async (email: string, spaceName: string, name?: string): Promise<Employee[]> => {
     if (!email || !spaceName) return db.getEmployees();
     const cleanEmail = email.trim().toLowerCase();
     const cleanSpace = spaceName.trim();
-    let list = db.getEmployees();
+    let list = await db.getEmployees();
 
-    // Clear this spaceName from all other employees to guarantee 1:1 privacy
     list = list.map(e => {
       if (e.email.toLowerCase() !== cleanEmail && e.webhookUrl === cleanSpace) {
         return { ...e, webhookUrl: '' };
@@ -260,60 +415,156 @@ export const db = {
       });
     }
 
-    db.saveEmployees(list);
+    await db.saveEmployees(list);
     return list;
   },
-  getPendingDraft: (userKey?: string): { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string } | null => {
+
+  getPendingDraft: async (userKey?: string, spaceName?: string, userName?: string): Promise<{ tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string } | null> => {
+    if (!userKey && !spaceName && !userName) return null;
+
+    const candidates = [
+      userKey?.toLowerCase().trim(),
+      spaceName?.toLowerCase().trim(),
+      userName?.toLowerCase().trim()
+    ].filter(Boolean) as string[];
+
+    // 1. Check in-memory drafts
+    for (const k of candidates) {
+      const d = memoryDrafts[k];
+      if (d && isDraftFresh(d)) return d;
+    }
+
+    // 2. Check local disk
+    const diskDrafts = readFile<Record<string, any>>(path.join(DATA_DIR, 'drafts.json'), 'drafts.json', {});
+    for (const k of candidates) {
+      const d = diskDrafts[k];
+      if (d && isDraftFresh(d)) {
+        memoryDrafts[k] = d;
+        return d;
+      }
+    }
+
+    // 3. Check Cloud KV
+    if (hasCloudKV) {
+      for (const k of candidates) {
+        const cleanKey = k.replace(/[^a-zA-Z0-9_\-:@.]/g, '_');
+        const d = await cloudGet<any>(`draft:${cleanKey}`);
+        if (d && isDraftFresh(d)) {
+          memoryDrafts[k] = d;
+          return d;
+        }
+      }
+    }
+
+    return null;
+  },
+
+  getPendingDraftSync: (userKey?: string): { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string } | null => {
     if (!userKey) return null;
-    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string }>>(
-      path.join(DATA_DIR, 'drafts.json'),
-      'drafts.json',
-      {}
-    );
-    const draft = drafts[userKey.toLowerCase()];
-    if (draft && draft.date === new Date().toISOString().slice(0, 10)) {
-      return draft;
+    const k = userKey.toLowerCase().trim();
+    if (memoryDrafts[k] && isDraftFresh(memoryDrafts[k])) return memoryDrafts[k];
+    const diskDrafts = readFile<Record<string, any>>(path.join(DATA_DIR, 'drafts.json'), 'drafts.json', {});
+    const d = diskDrafts[k];
+    if (d && isDraftFresh(d)) {
+      memoryDrafts[k] = d;
+      return d;
     }
     return null;
   },
-  savePendingDraft: (userKey: string, draft: { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date?: string }): void => {
-    if (!userKey) return;
-    const filePath = path.join(DATA_DIR, 'drafts.json');
-    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string }>>(
-      filePath,
-      'drafts.json',
-      {}
-    );
-    drafts[userKey.toLowerCase()] = {
+
+  savePendingDraft: async (
+    userKey: string,
+    draft: { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date?: string },
+    spaceName?: string,
+    userName?: string
+  ): Promise<void> => {
+    if (!userKey && !spaceName && !userName) return;
+
+    const draftRecord = {
       tasks: draft.tasks,
       project: draft.project,
       blocker: draft.blocker,
       hours: draft.hours ?? 0,
       remainingHours: draft.remainingHours ?? 0,
-      date: draft.date || new Date().toISOString().slice(0, 10)
+      date: draft.date || new Date().toISOString().slice(0, 10),
+      timestamp: Date.now()
     };
-    writeFile(filePath, drafts);
-  },
-  clearPendingDraft: (userKey?: string): void => {
-    if (!userKey) return;
+
+    const keys = Array.from(new Set([
+      userKey?.toLowerCase().trim(),
+      spaceName?.toLowerCase().trim(),
+      userName?.toLowerCase().trim()
+    ].filter(Boolean) as string[]));
+
+    // 1. Update in-memory
+    keys.forEach(k => { memoryDrafts[k] = draftRecord; });
+
+    // 2. Update local disk
     const filePath = path.join(DATA_DIR, 'drafts.json');
-    const drafts = readFile<Record<string, { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string }>>(
-      filePath,
-      'drafts.json',
-      {}
-    );
-    delete drafts[userKey.toLowerCase()];
-    writeFile(filePath, drafts);
+    const diskDrafts = readFile<Record<string, any>>(filePath, 'drafts.json', {});
+    keys.forEach(k => { diskDrafts[k] = draftRecord; });
+    writeFile(filePath, diskDrafts);
+
+    // 3. Update Cloud KV with 24-hour TTL (86400 seconds)
+    if (hasCloudKV) {
+      for (const k of keys) {
+        const cleanKey = k.replace(/[^a-zA-Z0-9_\-:@.]/g, '_');
+        await cloudSet(`draft:${cleanKey}`, draftRecord, 86400);
+      }
+    }
   },
-  getSettings: (): CompanySettings => {
-    return readFile<CompanySettings>(SET_FILE, 'settings.json', DEFAULT_SETTINGS);
+
+  clearPendingDraft: async (userKey?: string, spaceName?: string, userName?: string): Promise<void> => {
+    const keys = Array.from(new Set([
+      userKey?.toLowerCase().trim(),
+      spaceName?.toLowerCase().trim(),
+      userName?.toLowerCase().trim()
+    ].filter(Boolean) as string[]));
+
+    keys.forEach(k => { delete memoryDrafts[k]; });
+
+    const filePath = path.join(DATA_DIR, 'drafts.json');
+    const diskDrafts = readFile<Record<string, any>>(filePath, 'drafts.json', {});
+    keys.forEach(k => { delete diskDrafts[k]; });
+    writeFile(filePath, diskDrafts);
+
+    if (hasCloudKV) {
+      for (const k of keys) {
+        const cleanKey = k.replace(/[^a-zA-Z0-9_\-:@.]/g, '_');
+        await cloudDel(`draft:${cleanKey}`);
+      }
+    }
   },
-  saveSettings: (settings: Partial<CompanySettings>): CompanySettings => {
-    const current = db.getSettings();
+
+  getSettings: async (): Promise<CompanySettings> => {
+    if (memorySettings) return memorySettings;
+    if (hasCloudKV) {
+      const cloudSet = await cloudGet<CompanySettings>('settings:config');
+      if (cloudSet) {
+        memorySettings = cloudSet;
+        return cloudSet;
+      }
+    }
+    const current = readFile<CompanySettings>(SET_FILE, 'settings.json', DEFAULT_SETTINGS);
+    memorySettings = current;
+    return current;
+  },
+
+  getSettingsSync: (): CompanySettings => {
+    if (memorySettings) return memorySettings;
+    const current = readFile<CompanySettings>(SET_FILE, 'settings.json', DEFAULT_SETTINGS);
+    memorySettings = current;
+    return current;
+  },
+
+  saveSettings: async (settings: Partial<CompanySettings>): Promise<CompanySettings> => {
+    const current = await db.getSettings();
     const updated = { ...current, ...settings };
+    memorySettings = updated;
     writeFile(SET_FILE, updated);
+    if (hasCloudKV) {
+      await cloudSet('settings:config', updated);
+    }
     return updated;
   }
 };
-
-

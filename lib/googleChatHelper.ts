@@ -276,6 +276,7 @@ export function buildStandupConfirmationCard(params: {
   hours: number;
   blocker: string;
   time: string;
+  date?: string;
   isUpdate?: boolean;
 }) {
   const blockerBadge = params.blocker === "None"
@@ -290,9 +291,11 @@ export function buildStandupConfirmationCard(params: {
     ? `🔄 Standup Updated: ${params.project}`
     : `✅ Standup Logged: ${params.project}`;
 
+  const displayDate = params.date || formatLocalDate(new Date());
+
   const subtitle = params.isUpdate
-    ? `Updated for ${params.employeeName.split(' ')[0]} at ${params.time}`
-    : `Recorded for ${params.employeeName.split(' ')[0]} at ${params.time}`;
+    ? `Updated for ${params.employeeName.split(' ')[0]} on ${displayDate} at ${params.time}`
+    : `Recorded for ${params.employeeName.split(' ')[0]} on ${displayDate} at ${params.time}`;
 
   return {
     cardsV2: [
@@ -326,6 +329,11 @@ export function buildStandupConfirmationCard(params: {
                 {
                   textParagraph: {
                     text: blockerBadge
+                  }
+                },
+                {
+                  textParagraph: {
+                    text: `📅 <b>Recorded:</b> ${displayDate} &nbsp;•&nbsp; ⏱️ <b>Time:</b> ${params.time}`
                   }
                 },
                 {

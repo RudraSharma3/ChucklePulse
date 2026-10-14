@@ -222,7 +222,8 @@ export async function POST(req: NextRequest) {
           tasks: record.tasks,
           hours: record.hours,
           blocker: record.blocker,
-          time: timeStr
+          time: timeStr,
+          date: record.date || dateStr
         });
 
         return chatJson(formatChatResponse(confirmationCard, { isCardAction: true }));
@@ -485,6 +486,7 @@ export async function POST(req: NextRequest) {
         hours: record.hours,
         blocker: record.blocker,
         time: timeStr,
+        date: record.date || dateStr,
         isUpdate
       });
 
@@ -582,6 +584,7 @@ export async function POST(req: NextRequest) {
       hours: record.hours,
       blocker: record.blocker,
       time: timeStr,
+      date: record.date || dateStr,
       isUpdate
     });
 

@@ -1113,7 +1113,7 @@ export default function StandupDashboard() {
                         <th className="py-3.5 px-4 min-w-[340px]">Planned Tasks (Itemized)</th>
                         <th className="py-3.5 px-4 min-w-[110px]">Total Hours</th>
                         <th className="py-3.5 px-4 min-w-[160px]">Blockers</th>
-                        <th className="py-3.5 px-4 min-w-[130px]">Time & Source</th>
+                        <th className="py-3.5 px-4 min-w-[170px]">Logged At (Date & Time)</th>
                         <th className="py-3.5 px-4 text-right w-24">Actions</th>
                       </tr>
                     </thead>
@@ -1213,12 +1213,16 @@ export default function StandupDashboard() {
                               )}
                             </td>
 
-                            {/* 7. Time & Source */}
+                            {/* 7. Date, Time & Source */}
                             <td className="py-4 px-4">
-                              <div className="space-y-0.5">
-                                <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300 font-mono block">
-                                  {s.time}
-                                </span>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-slate-800 dark:text-zinc-200">
+                                  <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                  <span>{s.date}</span>
+                                  <span className="text-slate-400 dark:text-zinc-500">•</span>
+                                  <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span>{s.time}</span>
+                                </div>
                                 <span className="text-[10px] text-slate-400 dark:text-zinc-500 block truncate">
                                   {s.source || "Google Chat 1:1"}
                                 </span>
@@ -1295,7 +1299,14 @@ export default function StandupDashboard() {
                             <Briefcase className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             {s.project || "Daily Tasks"}
                           </span>
-                          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">{s.time} via {s.source}</span>
+                          <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <span>{s.date}</span>
+                            <span>•</span>
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>{s.time}</span>
+                            <span className="text-slate-400 dark:text-zinc-500">via {s.source}</span>
+                          </span>
                         </div>
 
                         {/* Structured Itemized Task Workspace */}
@@ -1413,7 +1424,9 @@ export default function StandupDashboard() {
 
                           <div className="text-right">
                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono block">{empStandup?.hours || 0}h logged</span>
-                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">{empStandup?.time}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
+                              {empStandup?.date ? `${empStandup.date} • ` : ""}{empStandup?.time}
+                            </span>
                           </div>
                         </div>
                       );
@@ -1534,8 +1547,15 @@ export default function StandupDashboard() {
                             </span>
                           )}
                         </td>
-                        <td className="p-4 text-xs text-slate-500 dark:text-zinc-400 font-mono">
-                          {s.time} • <span className="text-slate-400 dark:text-zinc-500">{s.source}</span>
+                        <td className="p-4 text-xs font-mono">
+                          <div className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-zinc-200">
+                            <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>{s.date}</span>
+                            <span className="text-slate-400 dark:text-zinc-500">•</span>
+                            <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{s.time}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 dark:text-zinc-500 block mt-0.5">{s.source}</span>
                         </td>
                       </tr>
                     ))

@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { db } from './db';
-import { buildStandupPromptCard, buildRemainingHoursCard } from './googleChatHelper';
+import { buildStandupPromptCard, buildRemainingHoursCard, formatLocalDate } from './googleChatHelper';
+import { Employee, StandupRecord } from './types';
 
 interface ServiceAccountCredentials {
   client_email: string;
@@ -246,6 +247,75 @@ export async function findOrCreateDmSpace(email: string, token: string): Promise
   return null;
 }
 
+// Cache of last message dispatch timestamps to prevent double-popups within 20 minutes
+const lastDispatchTimestamps: Map<string, number> = new Map();
+
+/**
+ * Validates if a standup record belongs to today (supporting local IST date, UTC, or within 18 hours)
+ */
+export function isStandupForToday(dateStr?: string): boolean {
+  if (!dateStr) return false;
+  const now = new Date();
+  const todayLocal = formatLocalDate(now).trim();
+  const todayUTC = now.toISOString().slice(0, 10);
+  const clean = dateStr.trim();
+
+  if (clean === todayLocal || clean === todayUTC) return true;
+
+  try {
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      const pLocal = formatLocalDate(parsed).trim();
+      const pUTC = parsed.toISOString().slice(0, 10);
+      if (pLocal === todayLocal || pUTC === todayUTC) return true;
+      if (now.getTime() - parsed.getTime() < 18 * 60 * 60 * 1000 && now.getTime() >= parsed.getTime()) {
+        return true;
+      }
+    }
+  } catch (e) {}
+
+  return false;
+}
+
+/**
+ * Checks if an employee has already submitted their full standup or leave for today
+ */
+export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[]): boolean {
+  const empEmail = (emp.email || "").toLowerCase().trim();
+  const empName = (emp.name || "").toLowerCase().trim();
+  const empFirst = empName.split(' ')[0];
+  const empPrefix = empEmail.split('@')[0];
+
+  return standups.some(s => {
+    if (!isStandupForToday(s.date)) return false;
+
+    const sEmail = (s.email || "").toLowerCase().trim();
+    const sName = (s.name || "").toLowerCase().trim();
+    const sFirst = sName.split(' ')[0];
+    const sPrefix = sEmail.split('@')[0];
+
+    // Check identity match
+    let isMatch = false;
+    if (empEmail && sEmail && empEmail === sEmail) isMatch = true;
+    else if (empPrefix && sPrefix && empPrefix === sPrefix) isMatch = true;
+    else if (empPrefix && sPrefix && (empPrefix.replace(/[^a-z]/g, '') === sPrefix.replace(/[^a-z]/g, ''))) isMatch = true;
+    else if (empName && sName && (empName === sName || empName.includes(sName) || sName.includes(empName))) isMatch = true;
+    else if (empFirst && sFirst && empFirst.length >= 3 && empFirst === sFirst) isMatch = true;
+
+    if (!isMatch) return false;
+
+    // A completed standup has logged hours >= 8, valid tasks, or marked leave
+    const hasHours = s.hours !== undefined && s.hours >= 8.0;
+    const hasTasks = Boolean(s.tasks && s.tasks.trim().length > 3 && s.tasks.toLowerCase() !== 'general tasks');
+    const isLeave = Boolean(
+      (s.blocker && s.blocker.toLowerCase().includes('leave')) ||
+      (s.tasks && s.tasks.toLowerCase().includes('leave'))
+    );
+
+    return hasHours || hasTasks || isLeave;
+  });
+}
+
 /**
  * Broadcasts the standup prompt (or nudge) directly to all employees in 1:1 DMs via Service Account
  */
@@ -253,15 +323,13 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
   const settings = await db.getSettings();
   const employees = await db.getEmployees();
   const standups = await db.getStandups();
-  const today = new Date().toISOString().slice(0, 10);
 
-  const completedEmails = new Set(
-    standups.filter(s => s.date === today).map(s => s.email.toLowerCase())
-  );
-
+  // Filter out any employee who has ALREADY completed their standup today.
+  // Both morning prompt and follow-up nudge NEVER re-prompt someone who already finished!
   const eligibleEmployees = employees.filter(emp => {
-    if (isNudge && completedEmails.has(emp.email.toLowerCase())) return false;
-    return Boolean(emp.email);
+    if (!emp.email && !emp.name) return false;
+    if (isEmployeeCompletedToday(emp, standups)) return false;
+    return true;
   });
 
   let sent = 0;
@@ -333,6 +401,14 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
       continue;
     }
 
+    // Anti-spam guard: Never re-prompt the same employee within 20 minutes (prevents duplicate crons/clicks)
+    const dispatchKey = `${(emp.email || emp.name).toLowerCase()}::${spaceName}`;
+    const lastDispatched = lastDispatchTimestamps.get(dispatchKey) || 0;
+    const nowMs = Date.now();
+    if (nowMs - lastDispatched < 20 * 60 * 1000) {
+      continue;
+    }
+
     const firstName = emp.name.split(' ')[0] || "Champion";
     const userKey = emp.email.toLowerCase();
     const draft = isNudge ? (await db.getPendingDraft(userKey, spaceName, emp.name)) : null;
@@ -360,6 +436,7 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
 
     const result = await sendDirectMessageToSpace(spaceName, card);
     if (result.success) {
+      lastDispatchTimestamps.set(dispatchKey, nowMs);
       sent++;
       successfulTargets.push({ name: emp.name, email: emp.email, space: spaceName });
     } else {

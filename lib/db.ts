@@ -348,6 +348,20 @@ export const db = {
     if (hasCloudKV) {
       await cloudSet('standups:list', list);
     }
+
+    try {
+      const emps = await db.getEmployees();
+      const empIdx = emps.findIndex(e =>
+        e.email.trim().toLowerCase() === recEmail ||
+        (record.name && e.name.trim().toLowerCase() === record.name.trim().toLowerCase())
+      );
+      if (empIdx >= 0) {
+        emps[empIdx].lastStandupDate = record.date;
+        emps[empIdx].lastStandupTime = record.time;
+        await db.saveEmployees(emps);
+      }
+    } catch (e) {}
+
     return list;
   },
 

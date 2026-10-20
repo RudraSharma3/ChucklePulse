@@ -77,7 +77,7 @@ export async function getGoogleChatAccessToken(): Promise<string> {
 
   const claimSet = {
     iss: creds.client_email,
-    scope: "https://www.googleapis.com/auth/chat.bot https://www.googleapis.com/auth/chat.messages.create https://www.googleapis.com/auth/chat.spaces.readonly",
+    scope: "https://www.googleapis.com/auth/chat.bot https://www.googleapis.com/auth/chat.messages.create https://www.googleapis.com/auth/chat.messages.readonly https://www.googleapis.com/auth/chat.spaces.readonly",
     aud: "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now
@@ -277,10 +277,18 @@ export function isStandupForToday(dateStr?: string): boolean {
   return false;
 }
 
+// Daily nudge tracking to ensure no employee is nudged more than once per day
+const dailyNudgedEmployees: Map<string, string> = new Map(); // key -> YYYY-MM-DD
+
 /**
  * Checks if an employee has already submitted their full standup or leave for today
  */
 export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[]): boolean {
+  // 1. Direct check on employee metadata
+  if (emp.lastStandupDate && isStandupForToday(emp.lastStandupDate)) {
+    return true;
+  }
+
   const empEmail = (emp.email || "").toLowerCase().trim();
   const empName = (emp.name || "").toLowerCase().trim();
   const empFirst = empName.split(' ')[0];
@@ -304,8 +312,8 @@ export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[
 
     if (!isMatch) return false;
 
-    // A completed standup has logged hours >= 8, valid tasks, or marked leave
-    const hasHours = s.hours !== undefined && s.hours >= 8.0;
+    // Any recorded standup with hours > 0 or valid tasks or leave counts as submitted
+    const hasHours = s.hours !== undefined && s.hours > 0;
     const hasTasks = Boolean(s.tasks && s.tasks.trim().length > 3 && s.tasks.toLowerCase() !== 'general tasks');
     const isLeave = Boolean(
       (s.blocker && s.blocker.toLowerCase().includes('leave')) ||
@@ -317,12 +325,52 @@ export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[
 }
 
 /**
+ * Verifies if there has already been user or bot standup activity in the Google Chat 1:1 space today
+ */
+export async function hasSpaceActivityToday(spaceName: string, token: string): Promise<boolean> {
+  try {
+    const cleanSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
+    const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=5`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    const messages: any[] = data.messages || [];
+    const now = new Date();
+    const todayLocal = formatLocalDate(now).trim();
+    const todayUTC = now.toISOString().slice(0, 10);
+
+    for (const msg of messages) {
+      const createTime: string = msg.createTime || "";
+      if (!createTime) continue;
+      const msgDate = new Date(createTime);
+      const msgLocal = formatLocalDate(msgDate).trim();
+      const msgUTC = createTime.slice(0, 10);
+
+      const isToday = msgLocal === todayLocal || msgUTC === todayUTC || (now.getTime() - msgDate.getTime() < 16 * 60 * 60 * 1000);
+      if (isToday) {
+        // If human sent a message today, or bot sent a confirmation card:
+        if (msg.sender?.type === 'HUMAN' || msg.sender?.type === 'USER') {
+          return true;
+        }
+        const textContent = JSON.stringify(msg);
+        if (textContent.includes('Standup Logged') || textContent.includes('Standup Recorded') || textContent.includes('Standup Updated')) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+/**
  * Broadcasts the standup prompt (or nudge) directly to all employees in 1:1 DMs via Service Account
  */
 export async function broadcastDirectStandup(isNudge: boolean = false) {
   const settings = await db.getSettings();
   const employees = await db.getEmployees();
   const standups = await db.getStandups();
+  const todayLocal = formatLocalDate(new Date()).trim();
 
   // Filter out any employee who has ALREADY completed their standup today.
   // Both morning prompt and follow-up nudge NEVER re-prompt someone who already finished!
@@ -358,6 +406,16 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
   } catch (dErr) {}
 
   for (const emp of eligibleEmployees) {
+    const empIdentifier = (emp.email || emp.name).toLowerCase();
+
+    // In nudge mode, strictly enforce once-per-day follow-up
+    if (isNudge) {
+      const lastNudgeDate = dailyNudgedEmployees.get(empIdentifier);
+      if (lastNudgeDate === todayLocal) {
+        continue;
+      }
+    }
+
     let spaceName = emp.webhookUrl;
 
     // Sanity check: Ensure Rudra's space is not accidentally assigned to other employees
@@ -401,11 +459,17 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
       continue;
     }
 
-    // Anti-spam guard: Never re-prompt the same employee within 20 minutes (prevents duplicate crons/clicks)
-    const dispatchKey = `${(emp.email || emp.name).toLowerCase()}::${spaceName}`;
+    // Anti-spam guard: Never re-prompt the same employee within 30 minutes (prevents duplicate crons/clicks)
+    const dispatchKey = `${empIdentifier}::${spaceName}`;
     const lastDispatched = lastDispatchTimestamps.get(dispatchKey) || 0;
     const nowMs = Date.now();
-    if (nowMs - lastDispatched < 20 * 60 * 1000) {
+    if (nowMs - lastDispatched < 30 * 60 * 1000) {
+      continue;
+    }
+
+    // Direct Google Chat Space History check: Has this space already seen user activity or confirmation today?
+    const hasSpaceActivity = await hasSpaceActivityToday(spaceName, token);
+    if (hasSpaceActivity) {
       continue;
     }
 
@@ -437,6 +501,9 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     const result = await sendDirectMessageToSpace(spaceName, card);
     if (result.success) {
       lastDispatchTimestamps.set(dispatchKey, nowMs);
+      if (isNudge) {
+        dailyNudgedEmployees.set(empIdentifier, todayLocal);
+      }
       sent++;
       successfulTargets.push({ name: emp.name, email: emp.email, space: spaceName });
     } else {

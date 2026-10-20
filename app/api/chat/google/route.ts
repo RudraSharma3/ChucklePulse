@@ -494,59 +494,9 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // CASE 2: USER PROVIDED NO HOURS AT ALL (e.g. "erp automation")
+    // CASE 2: USER PROVIDED STANDUP UPDATE (WITH OR WITHOUT EXPLICIT HOURS)
     // =========================================================================
-    if (!parsed.hasExplicitHours && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-      const draftProject = parsed.project || 'Daily Tasks';
-      const draftTasks = parsed.tasks || cleanText;
-
-      await db.savePendingDraft(userKey, {
-        tasks: draftTasks,
-        project: draftProject,
-        blocker: parsed.blocker || 'None',
-        date: dateStr
-      }, spaceName, userName);
-
-      const hoursCard = buildHoursRequestCard({
-        userName: firstName,
-        tasks: draftTasks,
-        project: draftProject
-      });
-
-      return chatJson(formatChatResponse(hoursCard));
-    }
-
-    // =========================================================================
-    // CASE 3: USER PROVIDED HOURS LESS THAN 8.0 (e.g. "Erp automation for 5 hours")
-    // =========================================================================
-    if (parsed.hours > 0 && parsed.hours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-      const remaining = +(8.0 - parsed.hours).toFixed(1);
-      const draftProject = parsed.project || 'Daily Tasks';
-      const draftTasks = parsed.tasks || cleanText;
-
-      await db.savePendingDraft(userKey, {
-        tasks: draftTasks,
-        project: draftProject,
-        blocker: parsed.blocker || 'None',
-        hours: parsed.hours,
-        remainingHours: remaining,
-        date: dateStr
-      }, spaceName, userName);
-
-      const capacityCard = buildRemainingHoursCard({
-        userName: firstName,
-        project: draftProject,
-        tasks: draftTasks,
-        loggedHours: parsed.hours,
-        remainingHours: remaining
-      });
-
-      return chatJson(formatChatResponse(capacityCard));
-    }
-
-    // =========================================================================
-    // CASE 4: USER PROVIDED 8.0+ HOURS OR SPECIAL STATUS (LEAVE / STANDBY)
-    // =========================================================================
+    // Determine hours: default to 8.0 (full day) if user only described tasks
     let finalHours = 8.0;
     if (parsed.hours > 0) {
       finalHours = parsed.hours;
@@ -572,9 +522,23 @@ export async function POST(req: NextRequest) {
       rawText: cleanText
     };
 
-    // Save check-in immediately to database and cloud (replaces previous record for today)
+    // Save check-in immediately to database and cloud (user is now 100% checked in!)
     await db.saveStandup(record);
-    await db.clearPendingDraft(userKey, spaceName, userName);
+
+    // If user provided partial hours (< 8.0), save a draft so any subsequent reply easily adds to it
+    if (finalHours > 0 && finalHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const remaining = +(8.0 - finalHours).toFixed(1);
+      await db.savePendingDraft(userKey, {
+        tasks: finalTasks,
+        project: finalProject,
+        blocker: parsed.blocker || 'None',
+        hours: finalHours,
+        remainingHours: remaining,
+        date: dateStr
+      }, spaceName, userName);
+    } else {
+      await db.clearPendingDraft(userKey, spaceName, userName);
+    }
 
     // Return Standup Confirmation Card directly
     const confirmationCard = buildStandupConfirmationCard({

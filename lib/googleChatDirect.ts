@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { db } from './db';
-import { buildStandupPromptCard, buildRemainingHoursCard, buildHoursRequestCard, formatLocalDate } from './googleChatHelper';
+import { buildStandupPromptCard, buildRemainingHoursCard, buildHoursRequestCard, formatLocalDate, getLocalHour } from './googleChatHelper';
 import { Employee, StandupRecord } from './types';
 
 interface ServiceAccountCredentials {
@@ -367,6 +367,21 @@ export async function hasSpaceActivityToday(spaceName: string, token: string): P
  * Broadcasts the standup prompt (or nudge) directly to all employees in 1:1 DMs via Service Account
  */
 export async function broadcastDirectStandup(isNudge: boolean = false) {
+  // Strictly enforce 12:00 PM cutoff: No follow-up nudges permitted after 12:00 PM local time
+  if (isNudge) {
+    const currentHour = getLocalHour(new Date());
+    if (currentHour >= 12) {
+      console.log(`[StandupBot] Follow-up window closed (current local hour is ${currentHour}:00). Nudges are only sent before 12:00 PM.`);
+      return {
+        success: true,
+        sent: 0,
+        totalTargetEmployees: 0,
+        targets: [],
+        errors: ["Follow-up window closed: Standup follow-ups are strictly allowed before 12:00 PM only."]
+      };
+    }
+  }
+
   const settings = await db.getSettings();
   const employees = await db.getEmployees();
   const standups = await db.getStandups();

@@ -21,6 +21,19 @@ async function handleTrigger(req: NextRequest) {
     let directError: string | null = null;
     let serviceAccountResult: any = null;
 
+    if (action === "nudge") {
+      const { getLocalHour } = await import("@/lib/googleChatHelper");
+      const currentHour = getLocalHour(new Date());
+      if (currentHour >= 12) {
+        return NextResponse.json({
+          success: true,
+          action: "nudge",
+          directSent: false,
+          message: "Follow-up window closed: Standup follow-ups are only allowed before 12:00 PM."
+        });
+      }
+    }
+
     // 1. Direct 1:1 DM Broadcast via Google Cloud Service Account (NO Apps Script needed!)
     try {
       const { getServiceAccountCredentials, broadcastDirectStandup } = await import("@/lib/googleChatDirect");

@@ -368,10 +368,18 @@ export async function POST(req: NextRequest) {
       let chosenHours = 0;
       let chosenTasks = existingDraft.tasks || cleanText;
       let chosenProject = existingDraft.project || 'Daily Tasks';
-      let chosenBlocker = existingDraft.blocker || parsed.blocker || 'None';
+      let chosenBlocker = existingDraft.blocker || 'None';
+      if (parsed.blocker && parsed.blocker !== 'None') {
+        chosenBlocker = (chosenBlocker && chosenBlocker !== 'None')
+          ? `${chosenBlocker}, ${parsed.blocker}`
+          : parsed.blocker;
+      }
 
       if (parsed.isOnlyHours || parsed.hasExplicitHours) {
-        chosenHours = parsed.hours > 0 ? parsed.hours : 0;
+        const addHours = parsed.hours > 0 ? parsed.hours : 0;
+        chosenHours = (existingDraft.hours && existingDraft.hours > 0)
+          ? +(existingDraft.hours + addHours).toFixed(1)
+          : addHours;
         if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 3 && !parsed.isOnlyHours) {
           chosenTasks = `${existingDraft.tasks}, ${parsed.tasks}`;
         }

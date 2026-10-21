@@ -108,6 +108,8 @@ export function buildHoursRequestCard(params: {
   tasks: string;
   project: string;
 }) {
+  const endpointUrl = getBotEndpointUrl();
+
   return {
     cardsV2: [
       {
@@ -115,7 +117,7 @@ export function buildHoursRequestCard(params: {
         card: {
           header: {
             title: "⏱️ Hours Required",
-            subtitle: `Awesome update, ${params.userName}! How many hours for today?`,
+            subtitle: `Thanks for the update, ${params.userName}! How many hours will this take?`,
             imageUrl: BOT_ICON_URL,
             imageType: "CIRCLE"
           },
@@ -124,17 +126,83 @@ export function buildHoursRequestCard(params: {
               widgets: [
                 {
                   textParagraph: {
-                    text: `📝 <b>Tasks Recorded:</b> ${params.tasks}`
+                    text: `📝 <b>Planned Tasks:</b> ${params.tasks}`
                   }
                 },
                 {
                   textParagraph: {
-                    text: `📁 <b>Initiative:</b> ${params.project}`
+                    text: `📁 <b>Project:</b> ${params.project}`
                   }
                 },
                 {
                   textParagraph: {
-                    text: `👉 <b>Please reply directly with the number of hours you are allocating for these tasks today</b> (e.g. "8 hours", "6h", or "7.5 hrs").`
+                    text: `👉 <b>Tap your planned hours below or reply in chat with the number of hours</b> (e.g. <i>"8 hours"</i>, <i>"7h"</i>, <i>"6h"</i>):`
+                  }
+                },
+                {
+                  buttonList: {
+                    buttons: [
+                      {
+                        text: "8 hrs (Full Day)",
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "8.0" }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: "7 hrs",
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "7.0" }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: "6 hrs",
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "6.0" }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: "5 hrs",
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "5.0" }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: "4 hrs (Half Day)",
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitHours" },
+                              { key: "hours", value: "4.0" }
+                            ]
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               ]

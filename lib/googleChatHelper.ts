@@ -60,6 +60,15 @@ export function formatLocalDate(date: Date = new Date()): string {
   }).format(date);
 }
 
+export function getLocalHour(date: Date = new Date()): number {
+  const hourStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
+    hour: 'numeric',
+    hour12: false
+  }).format(date);
+  return parseInt(hourStr, 10);
+}
+
 /**
  * Builds an interactive Standup Prompt Card v2
  */

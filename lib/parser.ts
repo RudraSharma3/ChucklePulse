@@ -10,6 +10,17 @@ function capitalizeWords(str: string): string {
   return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
+export function parseDurationToHours(numStr: string, unitStr?: string): number {
+  const val = parseFloat(numStr);
+  if (isNaN(val) || val <= 0) return 0;
+  
+  const unit = (unitStr || '').toLowerCase().trim();
+  if (/^(?:min|mins|minute|minutes|m)$/.test(unit)) {
+    return +(val / 60).toFixed(2);
+  }
+  return +val.toFixed(2);
+}
+
 /**
  * Intelligent Standup NLP Parser
  * Extracts Project Name, Hours, Tasks List, and Blockers from any freeform conversational text.
@@ -17,6 +28,7 @@ function capitalizeWords(str: string): string {
 export function parseStandupMessage(text: string): {
   project: string;
   hours: number;
+  availableHours?: number;
   hasExplicitHours: boolean;
   isOnlyHours: boolean;
   isAwaitingTask: boolean;
@@ -34,9 +46,17 @@ export function parseStandupMessage(text: string): {
   let project = "";
   let blocker = "None";
 
-  // Check if message is ONLY hours (e.g., "7.5", "7.5h", "8 hours", "6.5 hrs", "5h", "5 hoyrs")
-  const onlyHoursMatch = clean.match(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h)?$/i);
-  const isOnlyHours = Boolean(onlyHoursMatch && parseFloat(onlyHoursMatch[1]) > 0 && parseFloat(onlyHoursMatch[1]) <= 24);
+  // Check if message is ONLY hours/minutes (e.g., "7.5", "7.5h", "8 hours", "30min", "30 mins", "0.5 hrs")
+  const onlyHoursMatch = clean.match(/^(\d+(?:\.\d+)?)\s*(?:(hrs?|hours?|hoyrs?|hrss?|h)|(mins?|minutes?|m))?$/i);
+  let isOnlyHours = false;
+  if (onlyHoursMatch) {
+    const rawVal = onlyHoursMatch[1];
+    const rawUnit = onlyHoursMatch[2] || onlyHoursMatch[3] || 'hrs';
+    const parsedH = parseDurationToHours(rawVal, rawUnit);
+    if (parsedH > 0 && parsedH <= 24) {
+      isOnlyHours = true;
+    }
+  }
 
   // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave, Non-work)
   const isAwaitingTask = /^(?:i\s+)?(?:didnt\s+get|didn\'t\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench)$/i.test(lower);
@@ -85,8 +105,32 @@ export function parseStandupMessage(text: string): {
     blocker = "Awaiting task allocation after planned hours";
   }
 
-  // Remove blocker portion for task/project parsing
-  const textWithoutBlocker = clean.replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, ' ').trim();
+  // 2B. Available / Bench / Free hours -> Counts as Blocker!
+  let availableHours = 0;
+  const availPrefixMatch = clean.match(/(?:available|bench|free|standby)\s*(?:=|:|-|\s|for\s+)*\s*(\d+(?:\.\d+)?)\s*(hrs?|hours?|hoyrs?|hrss?|h\b|mins?|minutes?|m\b)?/i);
+  const availSuffixMatch = clean.match(/(\d+(?:\.\d+)?)\s*(hrs?|hours?|hoyrs?|hrss?|h\b|mins?|minutes?|m\b)?\s*(?:available|free|bench|standby)/i);
+  const availMatch = availPrefixMatch || availSuffixMatch;
+  if (availMatch) {
+    const rawNum = availMatch[1];
+    const rawUnit = availMatch[2] || 'hrs';
+    const parsedHrs = parseDurationToHours(rawNum, rawUnit);
+    if (parsedHrs > 0 && parsedHrs <= 24) {
+      availableHours = parsedHrs;
+      const availText = `Available for tasks (${availableHours} ${availableHours === 1 ? 'hr' : 'hrs'})`;
+      if (!blocker || blocker === "None") {
+        blocker = availText;
+      } else {
+        blocker = `${blocker}, ${availText}`;
+      }
+    }
+  }
+
+  // Remove blocker portion and availability portion for clean task/project parsing
+  const textWithoutBlocker = clean
+    .replace(/(?:blocker|blocked by|blocking|issue|impediment)[:\s-][^\.\n\r]+/gi, ' ')
+    .replace(/(?:available|bench|free|standby)\s*(?:=|:|-|\s|for\s+)*\s*(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b|mins?|minutes?|m\b)?/gi, ' ')
+    .replace(/(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b|mins?|minutes?|m\b)?\s*(?:available|free|bench|standby)/gi, ' ')
+    .trim();
 
   // 3. Multi-Segment & Multi-Project Chunk Parsing
   // Splits on: "and on", "and also", "and then", "and", ",", ";", "\n", "&", "+"
@@ -96,7 +140,7 @@ export function parseStandupMessage(text: string): {
     .filter(Boolean);
 
   const parsedSegments: Array<{ name: string; hours: number }> = [];
-  const chunkRegex = /^(?:(?:i\s+am\s+(?:on|working\s+on)|i\s+am\s+on\s+project|working\s+on|work\s+on|focusing\s+on|on|in)\s+)?(?:project\s*[-:]?\s*([a-zA-Z0-9_\-]+)|([a-zA-Z0-9_\-\s]+?))\s*(?:for\s+|-|:|\(|\bat\b)\s*(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)?(?:\s*\))?$/i;
+  const chunkRegex = /^(?:(?:i\s+am\s+(?:on|working\s+on)|i\s+am\s+on\s+project|working\s+on|work\s+on|focusing\s+on|on|in)\s+)?(?:project\s*[-:]?\s*([a-zA-Z0-9_\-]+)|([a-zA-Z0-9_\-\s]+?))\s*(?:for\s+|-|:|\(|\bat\b|=)\s*(\d+(?:\.\d+)?)\s*(hrs?|hours?|hoyrs?|hrss?|h\b|mins?|minutes?|m\b)?(?:\s*\))?$/i;
 
   for (const chunk of chunks) {
     const m = chunk.match(chunkRegex);
@@ -109,15 +153,18 @@ export function parseStandupMessage(text: string): {
       } else {
         cleanedName = capitalizeWords(cleanedName);
       }
-      const hrs = parseFloat(m[3]);
-      if (!isNaN(hrs) && hrs > 0 && hrs <= 24) {
+      const rawVal = m[3];
+      const rawUnit = m[4];
+      const hrs = parseDurationToHours(rawVal, rawUnit);
+      if (hrs > 0 && hrs <= 24) {
         parsedSegments.push({ name: cleanedName, hours: hrs });
       }
     }
   }
 
   if (parsedSegments.length > 0) {
-    const totalHours = +(parsedSegments.reduce((acc, s) => acc + s.hours, 0).toFixed(1));
+    const taskHours = +(parsedSegments.reduce((acc, s) => acc + s.hours, 0).toFixed(1));
+    const totalHours = +(taskHours + availableHours).toFixed(1);
     const projectNames = Array.from(new Set(parsedSegments.map(s => s.name)));
     const combinedProject = projectNames.join(' + ');
     const taskList = parsedSegments.map(s => `${s.name} (${s.hours} ${s.hours === 1 ? 'hr' : 'hrs'})`);
@@ -126,6 +173,7 @@ export function parseStandupMessage(text: string): {
     return {
       project: combinedProject,
       hours: totalHours,
+      availableHours,
       hasExplicitHours: true,
       isOnlyHours: false,
       isAwaitingTask: false,
@@ -138,22 +186,29 @@ export function parseStandupMessage(text: string): {
   }
 
   // 4. Fallback Single-Project / Explicit Hours Extraction across full text
-  const hoursRegex = /(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/gi;
+  const hoursRegex = /(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\d+)?(?:\.\d+)?)\s*(?:(hrs?|hours?|hoyrs?|hrss?|h\b)|(mins?|minutes?|m\b))(?:\s*\)?)/gi;
   const allMatches = Array.from(textWithoutBlocker.matchAll(hoursRegex));
   if (allMatches.length > 0) {
     let sum = 0;
     for (const m of allMatches) {
       const val = parseFloat(m[1]);
-      if (!isNaN(val) && val > 0 && val <= 24) {
-        sum += val;
+      const isMins = Boolean(m[3]);
+      const hrs = isMins ? +(val / 60).toFixed(2) : val;
+      if (!isNaN(hrs) && hrs > 0 && hrs <= 24) {
+        sum += hrs;
       }
     }
-    if (sum > 0) {
-      hours = +(sum.toFixed(1));
+    if (sum > 0 || availableHours > 0) {
+      hours = +(sum + availableHours).toFixed(1);
       hasExplicitHours = true;
     }
   } else if (isOnlyHours && onlyHoursMatch) {
-    hours = parseFloat(onlyHoursMatch[1]);
+    const rawVal = onlyHoursMatch[1];
+    const rawUnit = onlyHoursMatch[2] || onlyHoursMatch[3] || 'hrs';
+    hours = parseDurationToHours(rawVal, rawUnit);
+    hasExplicitHours = true;
+  } else if (availableHours > 0) {
+    hours = availableHours;
     hasExplicitHours = true;
   }
 
@@ -221,7 +276,7 @@ export function parseStandupMessage(text: string): {
 
   // 7. Clean task string
   let tasks = textWithoutBlocker
-    .replace(/(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|hoyrs?|hrss?|h\b)(?:\s*\)?)/gi, ' ')
+    .replace(/(?:for\s+next\s+|for\s+|approx\s+|around\s+|\(?\s*)(\d+(?:\d+)?(?:\.\d+)?)\s*(?:(hrs?|hours?|hoyrs?|hrss?|h\b)|(mins?|minutes?|m\b))(?:\s*\)?)/gi, ' ')
     .replace(/\(\s*\)/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/\b(for\s+next\s+then|for\s+then|for\s+next|for|on|in|at|to|approx|around|and|then)\s*$/gi, '')

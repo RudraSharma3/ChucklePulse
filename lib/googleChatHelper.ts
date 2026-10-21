@@ -232,8 +232,11 @@ export function buildRemainingHoursCard(params: {
   tasks?: string;
   loggedHours: number;
   remainingHours: number;
+  availableHours?: number;
 }) {
   const logged = params.loggedHours;
+  const avail = params.availableHours || 0;
+  const totalAccounted = +(logged + avail).toFixed(1);
   const rem = params.remainingHours;
 
   const hasSpecificProject = Boolean(
@@ -246,13 +249,15 @@ export function buildRemainingHoursCard(params: {
   const cleanProject = hasSpecificProject ? params.project!.trim() : '';
   const cleanTasks = (params.tasks && params.tasks.toLowerCase() !== 'general tasks' && params.tasks.toLowerCase() !== 'general') ? params.tasks.trim() : '';
 
-  const headerSubtitle = cleanProject
-    ? `Logged ${logged} hrs on ${cleanProject}`
-    : `${logged} hours logged so far`;
+  const headerSubtitle = avail > 0
+    ? `Logged ${logged} hrs work + ${avail} hrs available (${totalAccounted} / 8.0 hrs)`
+    : (cleanProject ? `Logged ${logged} hrs on ${cleanProject}` : `${logged} hours logged so far`);
 
-  const loggedText = cleanProject
-    ? `📝 <b>Logged so far:</b> ${logged} hrs on <b>${cleanProject}</b>${cleanTasks && cleanTasks !== cleanProject ? ` (${cleanTasks})` : ''}`
-    : `📝 <b>Logged so far:</b> ${logged} hrs${cleanTasks ? ` (${cleanTasks})` : ''}`;
+  const loggedText = avail > 0
+    ? `📝 <b>Logged so far:</b> ${logged} hrs work${cleanProject ? ` on <b>${cleanProject}</b>` : ''}${cleanTasks && cleanTasks !== cleanProject ? ` (${cleanTasks})` : ''} + <b>${avail} hrs available</b> (Standby).`
+    : (cleanProject
+      ? `📝 <b>Logged so far:</b> ${logged} hrs on <b>${cleanProject}</b>${cleanTasks && cleanTasks !== cleanProject ? ` (${cleanTasks})` : ''}`
+      : `📝 <b>Logged so far:</b> ${logged} hrs${cleanTasks ? ` (${cleanTasks})` : ''}`);
 
   return {
     cardsV2: [
@@ -260,7 +265,7 @@ export function buildRemainingHoursCard(params: {
         cardId: `capacity-${Date.now()}`,
         card: {
           header: {
-            title: `⏰ Daily Capacity Check (${logged} / 8.0 hrs)`,
+            title: `⏰ Daily Capacity Check (${totalAccounted} / 8.0 hrs)`,
             subtitle: headerSubtitle,
             imageUrl: BOT_ICON_URL,
             imageType: "CIRCLE"

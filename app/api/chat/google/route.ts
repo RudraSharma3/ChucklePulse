@@ -238,6 +238,8 @@ export async function POST(req: NextRequest) {
 
         const cleanProj = (draft && draft.project && draft.project !== 'General Tasks') ? draft.project : 'Daily Tasks';
         const cleanTsk = (draft && draft.tasks && draft.tasks !== 'General tasks') ? draft.tasks : `${selectedHours} hrs logged`;
+        const availHrs = draft?.availableHours || 0;
+        const totalAccounted = +(selectedHours + availHrs).toFixed(1);
 
         const record: StandupRecord = {
           id: "std_" + Date.now(),
@@ -254,6 +256,31 @@ export async function POST(req: NextRequest) {
         };
 
         await db.saveStandup(record);
+
+        if (totalAccounted < 8.0) {
+          const remaining = +(8.0 - totalAccounted).toFixed(1);
+          await db.savePendingDraft(userKey, {
+            tasks: cleanTsk,
+            project: cleanProj,
+            blocker: record.blocker,
+            hours: selectedHours,
+            availableHours: availHrs,
+            remainingHours: remaining,
+            date: dateStr
+          }, spaceName, userName);
+
+          const capacityCard = buildRemainingHoursCard({
+            userName: firstName,
+            project: cleanProj,
+            tasks: cleanTsk,
+            loggedHours: selectedHours,
+            remainingHours: remaining,
+            availableHours: availHrs
+          });
+
+          return chatJson(formatChatResponse(capacityCard, { isCardAction: true }));
+        }
+
         await db.clearPendingDraft(userKey, spaceName, userName);
 
         const confirmationCard = buildStandupConfirmationCard({
@@ -436,7 +463,35 @@ export async function POST(req: NextRequest) {
         rawText: cleanText
       };
 
+      const availHrs = (parsed.availableHours || 0) + (existingDraft.availableHours || 0);
+      const totalAccounted = +(chosenHours + availHrs).toFixed(1);
+
       await db.saveStandup(record);
+
+      if (totalAccounted > 0 && totalAccounted < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+        const remaining = +(8.0 - totalAccounted).toFixed(1);
+        await db.savePendingDraft(userKey, {
+          tasks: chosenTasks,
+          project: chosenProject,
+          blocker: chosenBlocker,
+          hours: chosenHours,
+          availableHours: availHrs,
+          remainingHours: remaining,
+          date: dateStr
+        }, spaceName, userName);
+
+        const capacityCard = buildRemainingHoursCard({
+          userName: firstName,
+          project: chosenProject,
+          tasks: chosenTasks,
+          loggedHours: chosenHours,
+          remainingHours: remaining,
+          availableHours: availHrs
+        });
+
+        return chatJson(formatChatResponse(capacityCard));
+      }
+
       await db.clearPendingDraft(userKey, spaceName, userName);
 
       const confirmationCard = buildStandupConfirmationCard({
@@ -503,8 +558,37 @@ export async function POST(req: NextRequest) {
       rawText: cleanText
     };
 
-    // Save check-in immediately to database and cloud (user is now 100% checked in!)
+    // Check 8.0 hr workday shift requirement
+    const availHrs = parsed.availableHours || 0;
+    const totalAccounted = +(finalHours + availHrs).toFixed(1);
+
+    // Save check-in immediately to database and cloud (user is now 100% recorded!)
     await db.saveStandup(record);
+
+    if (totalAccounted > 0 && totalAccounted < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const remaining = +(8.0 - totalAccounted).toFixed(1);
+      await db.savePendingDraft(userKey, {
+        tasks: finalTasks,
+        project: finalProject,
+        blocker: record.blocker,
+        hours: finalHours,
+        availableHours: availHrs,
+        remainingHours: remaining,
+        date: dateStr
+      }, spaceName, userName);
+
+      const capacityCard = buildRemainingHoursCard({
+        userName: firstName,
+        project: finalProject,
+        tasks: finalTasks,
+        loggedHours: finalHours,
+        remainingHours: remaining,
+        availableHours: availHrs
+      });
+
+      return chatJson(formatChatResponse(capacityCard));
+    }
+
     await db.clearPendingDraft(userKey, spaceName, userName);
 
     // Return Standup Confirmation Card directly

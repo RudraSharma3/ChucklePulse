@@ -236,28 +236,6 @@ export async function POST(req: NextRequest) {
         const selectedHours = Number.isFinite(parsedFloat) && parsedFloat >= 0 && parsedFloat <= 24 ? parsedFloat : 8.0;
         const draft = await db.getPendingDraft(userKey, spaceName, userName);
 
-        // If selected hours is less than 8.0, prompt for remaining capacity!
-        if (selectedHours < 8.0) {
-          const remaining = +(8.0 - selectedHours).toFixed(1);
-          await db.savePendingDraft(userKey, {
-            tasks: draft?.tasks || "",
-            project: draft?.project || "",
-            blocker: draft?.blocker || "None",
-            hours: selectedHours,
-            remainingHours: remaining
-          }, spaceName, userName);
-
-          const capacityCard = buildRemainingHoursCard({
-            userName: firstName,
-            project: draft?.project || "",
-            tasks: draft?.tasks || "",
-            loggedHours: selectedHours,
-            remainingHours: remaining
-          });
-
-          return chatJson(formatChatResponse(capacityCard, { isCardAction: true }));
-        }
-
         const cleanProj = (draft && draft.project && draft.project !== 'General Tasks') ? draft.project : 'Daily Tasks';
         const cleanTsk = (draft && draft.tasks && draft.tasks !== 'General tasks') ? draft.tasks : `${selectedHours} hrs logged`;
 
@@ -275,8 +253,8 @@ export async function POST(req: NextRequest) {
           source: "Google Chat 1:1 Bot (Interactive)"
         };
 
-        db.saveStandup(record);
-        db.clearPendingDraft(userKey);
+        await db.saveStandup(record);
+        await db.clearPendingDraft(userKey, spaceName, userName);
 
         const confirmationCard = buildStandupConfirmationCard({
           employeeName: record.name,
@@ -284,7 +262,8 @@ export async function POST(req: NextRequest) {
           tasks: record.tasks,
           hours: record.hours,
           blocker: record.blocker,
-          time: timeStr
+          time: timeStr,
+          date: record.date || dateStr
         });
 
         return chatJson(formatChatResponse(confirmationCard, { isCardAction: true }));
@@ -382,94 +361,67 @@ export async function POST(req: NextRequest) {
       return chatJson(formatChatResponse(promptCard));
     }
 
-    // A message is only a complete standalone replacement if it provides a full 8+ hours standup
-    const isFullStandaloneStandup = parsed.hours >= 8.0;
-
     // =========================================================================
-    // CASE 1: USER IS REPLYING TO AN EXISTING DRAFT (CONTINUING THE FLOW)
+    // CASE 1: USER IS REPLYING TO AN EXISTING DRAFT (e.g. providing hours)
     // =========================================================================
-    if (existingDraft && !isFullStandaloneStandup) {
-      let combinedHours = 8.0;
-      let combinedTasks = existingDraft.tasks;
-      let combinedProject = existingDraft.project;
-      let combinedBlocker = existingDraft.blocker || parsed.blocker || 'None';
+    if (existingDraft) {
+      let chosenHours = 0;
+      let chosenTasks = existingDraft.tasks || cleanText;
+      let chosenProject = existingDraft.project || 'Daily Tasks';
+      let chosenBlocker = existingDraft.blocker || parsed.blocker || 'None';
 
-      if (parsed.isOnlyHours) {
-        // User answered with just a number/hours (e.g. "1h", "1 hour", "8")
-        if (existingDraft.hours && existingDraft.hours > 0) {
-          // Add to previous hours (e.g. 7h + 1h = 8h)
-          combinedHours = +(existingDraft.hours + parsed.hours).toFixed(1);
-        } else {
-          // Draft had 0 hours and was waiting for total hours
-          combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
+      if (parsed.isOnlyHours || parsed.hasExplicitHours) {
+        chosenHours = parsed.hours > 0 ? parsed.hours : 0;
+        if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 3 && !parsed.isOnlyHours) {
+          chosenTasks = `${existingDraft.tasks}, ${parsed.tasks}`;
         }
       } else if (parsed.isOnLeave || /half\s+day|day\s+off|leave/i.test(lowerText)) {
-        combinedHours = existingDraft.hours || 4.0;
-        combinedTasks = `${existingDraft.tasks} (Half-Day Leave)`;
-        combinedBlocker = 'Half-Day Leave';
+        chosenHours = 0.0;
+        chosenTasks = `${existingDraft.tasks} (On Leave)`;
+        chosenBlocker = 'On Leave';
       } else if (parsed.isAwaitingTask || /awaiting|bench|no\s+task|free/i.test(lowerText)) {
-        combinedHours = 8.0;
-        const rem = existingDraft.remainingHours || (8.0 - (existingDraft.hours || 0));
-        combinedProject = `${existingDraft.project} + Standby`;
-        combinedTasks = `${existingDraft.tasks} (${existingDraft.hours || 0} hrs), Awaiting Tasks (${rem} hrs)`;
-        combinedBlocker = `Awaiting task allocation for ${rem} hrs`;
-      } else if (existingDraft.hours && existingDraft.hours > 0) {
-        // User had partial hours previously (e.g. 7.0h) and is filling the remaining hours
-        const addHours = parsed.hours > 0 ? parsed.hours : (existingDraft.remainingHours || +(8.0 - existingDraft.hours).toFixed(1));
-        combinedHours = +(existingDraft.hours + addHours).toFixed(1);
-
-        // Extract task description, stripping any leading hours prefix like "1 hours --" or "1h -"
-        let newTaskDesc = parsed.tasks && parsed.tasks !== cleanText ? parsed.tasks : cleanText;
-        newTaskDesc = newTaskDesc.replace(/^(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)?\s*[-–—:]*\s*/i, '').trim();
-
-        if (newTaskDesc && !parsed.isOnlyHours) {
-          combinedTasks = `${existingDraft.tasks}, ${newTaskDesc} (${addHours}h)`;
-        }
-
-        if (parsed.project && parsed.project !== 'Daily Tasks' && parsed.project !== 'General Tasks' && !existingDraft.project.toLowerCase().includes(parsed.project.toLowerCase())) {
-          combinedProject = `${existingDraft.project} + ${parsed.project}`;
-        }
+        chosenHours = 0.0;
+        chosenProject = `${existingDraft.project} + Standby`;
+        chosenTasks = `${existingDraft.tasks} (Awaiting Tasks)`;
+        chosenBlocker = 'Awaiting task allocation';
       } else {
-        // User had no hours previously and is now providing tasks & hours
-        combinedHours = parsed.hours > 0 ? parsed.hours : 8.0;
-        if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 5 && !parsed.isOnlyHours) {
-          combinedTasks = `${existingDraft.tasks}, ${parsed.tasks}`;
+        // User typed more tasks but no hours yet
+        if (parsed.hours > 0) {
+          chosenHours = parsed.hours;
         }
+        chosenTasks = parsed.tasks && parsed.tasks !== cleanText
+          ? `${existingDraft.tasks}, ${parsed.tasks}`
+          : `${existingDraft.tasks}, ${cleanText}`;
       }
 
-      // If combined hours is STILL less than 8.0, prompt for remaining capacity!
-      if (combinedHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-        const remaining = +(8.0 - combinedHours).toFixed(1);
+      // If the employee still hasn't provided hours, ask for hours
+      if (chosenHours <= 0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
         await db.savePendingDraft(userKey, {
-          tasks: combinedTasks,
-          project: combinedProject,
-          blocker: combinedBlocker,
-          hours: combinedHours,
-          remainingHours: remaining,
+          tasks: chosenTasks,
+          project: chosenProject,
+          blocker: chosenBlocker,
           date: dateStr
         }, spaceName, userName);
 
-        const capacityCard = buildRemainingHoursCard({
+        const hoursCard = buildHoursRequestCard({
           userName: firstName,
-          project: combinedProject,
-          tasks: combinedTasks,
-          loggedHours: combinedHours,
-          remainingHours: remaining
+          tasks: chosenTasks,
+          project: chosenProject
         });
 
-        return chatJson(formatChatResponse(capacityCard));
+        return chatJson(formatChatResponse(hoursCard));
       }
 
-      // Completed standup
+      // Employee provided their hours! Save standup immediately
       const record: StandupRecord = {
         id: "std_" + Date.now(),
         name: userName,
         email: userEmail || "team@bytepx.com",
         dept: "Engineering",
-        tasks: combinedTasks,
-        hours: combinedHours,
-        project: combinedProject,
-        blocker: combinedBlocker,
+        tasks: chosenTasks,
+        hours: chosenHours,
+        project: chosenProject,
+        blocker: chosenBlocker,
         date: dateStr,
         time: timeStr,
         source: "Google Chat 1:1 Bot",
@@ -494,13 +446,34 @@ export async function POST(req: NextRequest) {
     }
 
     // =========================================================================
-    // CASE 2: USER PROVIDED STANDUP UPDATE (WITH OR WITHOUT EXPLICIT HOURS)
+    // CASE 2: USER PROVIDED NO HOURS AT ALL (e.g. "Working on feature X")
     // =========================================================================
-    // Determine hours: default to 8.0 (full day) if user only described tasks
-    let finalHours = 8.0;
-    if (parsed.hours > 0) {
-      finalHours = parsed.hours;
-    } else if (parsed.isOnLeave || parsed.isAwaitingTask) {
+    // Never default hours automatically — prompt the employee to specify!
+    if (!parsed.hasExplicitHours && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const draftProject = parsed.project || 'Daily Tasks';
+      const draftTasks = parsed.tasks || cleanText;
+
+      await db.savePendingDraft(userKey, {
+        tasks: draftTasks,
+        project: draftProject,
+        blocker: parsed.blocker || 'None',
+        date: dateStr
+      }, spaceName, userName);
+
+      const hoursCard = buildHoursRequestCard({
+        userName: firstName,
+        tasks: draftTasks,
+        project: draftProject
+      });
+
+      return chatJson(formatChatResponse(hoursCard));
+    }
+
+    // =========================================================================
+    // CASE 3: USER PROVIDED BOTH TASKS AND HOURS (e.g. "Working on X for 7 hours")
+    // =========================================================================
+    let finalHours = parsed.hours > 0 ? parsed.hours : 0.0;
+    if (parsed.isOnLeave || parsed.isAwaitingTask) {
       finalHours = 0.0;
     }
 
@@ -524,21 +497,7 @@ export async function POST(req: NextRequest) {
 
     // Save check-in immediately to database and cloud (user is now 100% checked in!)
     await db.saveStandup(record);
-
-    // If user provided partial hours (< 8.0), save a draft so any subsequent reply easily adds to it
-    if (finalHours > 0 && finalHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-      const remaining = +(8.0 - finalHours).toFixed(1);
-      await db.savePendingDraft(userKey, {
-        tasks: finalTasks,
-        project: finalProject,
-        blocker: parsed.blocker || 'None',
-        hours: finalHours,
-        remainingHours: remaining,
-        date: dateStr
-      }, spaceName, userName);
-    } else {
-      await db.clearPendingDraft(userKey, spaceName, userName);
-    }
+    await db.clearPendingDraft(userKey, spaceName, userName);
 
     // Return Standup Confirmation Card directly
     const confirmationCard = buildStandupConfirmationCard({

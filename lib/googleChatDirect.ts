@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { db } from './db';
-import { buildStandupPromptCard, buildRemainingHoursCard, formatLocalDate } from './googleChatHelper';
+import { buildStandupPromptCard, buildRemainingHoursCard, buildHoursRequestCard, formatLocalDate } from './googleChatHelper';
 import { Employee, StandupRecord } from './types';
 
 interface ServiceAccountCredentials {
@@ -478,8 +478,13 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     const draft = isNudge ? (await db.getPendingDraft(userKey, spaceName, emp.name)) : null;
 
     let card;
-    if (isNudge && draft && draft.hours && draft.hours > 0 && draft.remainingHours > 0) {
-      // Personalized follow-up showing logged hours so far & asking for remainder
+    if (isNudge && draft && draft.tasks) {
+      card = buildHoursRequestCard({
+        userName: firstName,
+        tasks: draft.tasks,
+        project: draft.project || 'Daily Tasks'
+      });
+    } else if (isNudge && draft && draft.hours && draft.hours > 0 && draft.remainingHours > 0) {
       card = buildRemainingHoursCard({
         userName: firstName,
         project: draft.project,

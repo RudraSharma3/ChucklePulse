@@ -488,7 +488,7 @@ export const db = {
 
   savePendingDraft: async (
     userKey: string,
-    draft: { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date?: string },
+    draft: { tasks: string; project: string; blocker: string; hours?: number; availableHours?: number; remainingHours?: number; date?: string },
     spaceName?: string,
     userName?: string
   ): Promise<void> => {
@@ -499,6 +499,7 @@ export const db = {
       project: draft.project,
       blocker: draft.blocker,
       hours: draft.hours ?? 0,
+      availableHours: draft.availableHours ?? 0,
       remainingHours: draft.remainingHours ?? 0,
       date: draft.date || new Date().toISOString().slice(0, 10),
       timestamp: Date.now()

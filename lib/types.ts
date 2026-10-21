@@ -6,6 +6,9 @@ export interface Employee {
   role: string;
   webhookUrl?: string;
   createdAt?: string;
+  lastStandupDate?: string;
+  lastStandupTime?: string;
+  pendingDraft?: any;
 }
 
 export interface StandupRecord {

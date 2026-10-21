@@ -14,6 +14,7 @@ import {
 import { parseStandupMessage } from '@/lib/parser';
 import { db } from '@/lib/db';
 import { StandupRecord } from '@/lib/types';
+import { isStandupForToday } from '@/lib/googleChatDirect';
 
 // Helper to buffer response JSON with strict headers
 function chatJson(payload: any) {
@@ -369,13 +370,45 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const timeStr = formatLocalTime(now);
     const dateStr = formatLocalDate(now);
-    const existingDraft = await db.getPendingDraft(userKey, spaceName, userName);
+    let existingDraft = await db.getPendingDraft(userKey, spaceName, userName);
 
     // Check if user already submitted a standup today (to flag as update/override)
     const existingStandups = await db.getStandups();
-    const isUpdate = existingStandups.some(
-      s => s.email.toLowerCase() === (userEmail || "").toLowerCase() && s.date === dateStr
-    );
+    const existingStandupToday = existingStandups.find(s => {
+      if (!isStandupForToday(s.date)) return false;
+      const sEmail = (s.email || '').toLowerCase().trim();
+      const sName = (s.name || '').toLowerCase().trim();
+      const sFirst = sName.split(' ')[0];
+      if (userEmail && sEmail && sEmail === userEmail.toLowerCase()) return true;
+      if (userName && sName && (sName === userName.toLowerCase() || sName.includes(userName.toLowerCase()))) return true;
+      if (firstName && (sFirst === firstName.toLowerCase() || sName.includes(firstName.toLowerCase()))) return true;
+      return false;
+    });
+
+    const isUpdate = Boolean(existingStandupToday);
+
+    // If existingDraft is not in cache/storage, but the user has an existing partial standup today:
+    if (!existingDraft && existingStandupToday) {
+      let availFromBlocker = 0;
+      const mAvail = (existingStandupToday.blocker || '').match(/(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)/i);
+      if (mAvail && /available|bench|free|standby/i.test(existingStandupToday.blocker || '')) {
+        availFromBlocker = parseFloat(mAvail[1]);
+      }
+      const loggedWork = existingStandupToday.hours || 0;
+      const totalAcc = loggedWork + availFromBlocker;
+      // If the existing standup is partial (< 8.0 hrs), treat it as an active draft!
+      if (totalAcc < 8.0) {
+        existingDraft = {
+          tasks: existingStandupToday.tasks,
+          project: existingStandupToday.project,
+          blocker: existingStandupToday.blocker,
+          hours: loggedWork,
+          availableHours: availFromBlocker,
+          remainingHours: +(8.0 - totalAcc).toFixed(1),
+          date: existingStandupToday.date
+        };
+      }
+    }
 
     // Check if user explicitly asked to reset/cancel draft
     const isExplicitReset = /^(?:reset|cancel|start\s*over|restart|clear|new\s*standup)$/i.test(cleanText.trim());
@@ -407,8 +440,13 @@ export async function POST(req: NextRequest) {
         chosenHours = (existingDraft.hours && existingDraft.hours > 0)
           ? +(existingDraft.hours + addHours).toFixed(1)
           : addHours;
-        if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 3 && !parsed.isOnlyHours) {
+        if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 2 && !parsed.isOnlyHours) {
           chosenTasks = `${existingDraft.tasks}, ${parsed.tasks}`;
+        } else if (cleanText && !parsed.isOnlyHours && cleanText.length > 3) {
+          chosenTasks = `${existingDraft.tasks}, ${parsed.tasks || cleanText}`;
+        }
+        if (parsed.project && parsed.project !== 'Daily Tasks' && !chosenProject.toLowerCase().includes(parsed.project.toLowerCase())) {
+          chosenProject = `${chosenProject} + ${parsed.project}`;
         }
       } else if (parsed.isOnLeave || /half\s+day|day\s+off|leave/i.test(lowerText)) {
         chosenHours = 0.0;

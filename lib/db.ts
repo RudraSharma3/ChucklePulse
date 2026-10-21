@@ -470,6 +470,23 @@ export const db = {
       }
     }
 
+    // 4. Check employee records (persisted across all instances)
+    try {
+      const emps = await db.getEmployees();
+      const emp = emps.find(e =>
+        candidates.some(c =>
+          e.email?.toLowerCase().trim() === c ||
+          e.name?.toLowerCase().trim() === c ||
+          e.name?.toLowerCase().trim().split(' ')[0] === c ||
+          e.webhookUrl?.toLowerCase().trim() === c
+        )
+      );
+      if (emp && emp.pendingDraft && isDraftFresh(emp.pendingDraft)) {
+        candidates.forEach(k => { memoryDrafts[k] = emp.pendingDraft; });
+        return emp.pendingDraft;
+      }
+    } catch (e) {}
+
     return null;
   },
 
@@ -527,6 +544,23 @@ export const db = {
         await cloudSet(`draft:${cleanKey}`, draftRecord, 86400);
       }
     }
+
+    // 4. Update employee record
+    try {
+      const emps = await db.getEmployees();
+      const emp = emps.find(e =>
+        keys.some(k =>
+          e.email?.toLowerCase().trim() === k ||
+          e.name?.toLowerCase().trim() === k ||
+          e.name?.toLowerCase().trim().split(' ')[0] === k ||
+          e.webhookUrl?.toLowerCase().trim() === k
+        )
+      );
+      if (emp) {
+        emp.pendingDraft = draftRecord;
+        await db.saveEmployees(emps);
+      }
+    } catch (e) {}
   },
 
   clearPendingDraft: async (userKey?: string, spaceName?: string, userName?: string): Promise<void> => {
@@ -549,6 +583,22 @@ export const db = {
         await cloudDel(`draft:${cleanKey}`);
       }
     }
+
+    try {
+      const emps = await db.getEmployees();
+      const emp = emps.find(e =>
+        keys.some(k =>
+          e.email?.toLowerCase().trim() === k ||
+          e.name?.toLowerCase().trim() === k ||
+          e.name?.toLowerCase().trim().split(' ')[0] === k ||
+          e.webhookUrl?.toLowerCase().trim() === k
+        )
+      );
+      if (emp && emp.pendingDraft) {
+        delete emp.pendingDraft;
+        await db.saveEmployees(emps);
+      }
+    } catch (e) {}
   },
 
   getSettings: async (): Promise<CompanySettings> => {

@@ -4,9 +4,28 @@ import { parseStandupMessage } from "@/lib/parser";
 import { StandupRecord } from "@/lib/types";
 import { formatLocalTime, formatLocalDate } from "@/lib/googleChatHelper";
 
+import { isStandupForToday } from "@/lib/googleChatDirect";
+
 export async function GET(req: NextRequest) {
-  const list = await db.getStandups();
-  return NextResponse.json(list);
+  let list = await db.getStandups();
+
+  // If local list has 0 entries from today, attempt automatic hydration from Google Chat!
+  const hasToday = list.some(s => isStandupForToday(s.date));
+  if (!hasToday) {
+    try {
+      const { syncStandupsFromGoogleChat } = await import("@/lib/googleChatDirect");
+      const synced = await syncStandupsFromGoogleChat();
+      if (synced && synced.length > 0) {
+        list = await db.getStandups();
+      }
+    } catch (e) {}
+  }
+
+  return NextResponse.json(list, {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate"
+    }
+  });
 }
 
 export async function POST(req: NextRequest) {

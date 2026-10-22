@@ -9,7 +9,8 @@ import {
   buildInteractiveCard,
   buildSuccessCard,
   formatLocalTime,
-  formatLocalDate
+  formatLocalDate,
+  getPositiveMorningGreeting
 } from '@/lib/googleChatHelper';
 import { parseStandupMessage } from '@/lib/parser';
 import { db } from '@/lib/db';
@@ -41,13 +42,33 @@ function extractInputValue(obj: any): string {
   return '';
 }
 
-const ROTATING_PROMPTS = [
-  "Good morning champion! ☕ What epic tasks are you tackling across your projects today?",
-  "Beep boop! 🛸 StandupBot daily check-in. What are your prime targets today before caffeine wears off?",
-  "Rise and grind! 🚀 Drop your planned project, tasks, hours, and any blockers!",
-  "Wakey wakey! 🥞 What tickets are you tackling today, how many hours, and did any wild bugs block you?",
-  "The game is afoot! 🕵️‍♂️ What is your main focus today and how many hours of genius are we pouring in?"
-];
+function resolveEmployeeIdentity(userName: string, userEmail: string) {
+  const list = db.getEmployeesSync();
+  const uEmail = (userEmail || "").toLowerCase().trim();
+  const uName = (userName || "").toLowerCase().trim();
+  const uFirst = uName.split(' ')[0];
+  const uPrefix = uEmail.split('@')[0];
+
+  const matched = list.find(e => {
+    const eEmail = (e.email || "").toLowerCase().trim();
+    const eName = (e.name || "").toLowerCase().trim();
+    const eFirst = eName.split(' ')[0];
+    const ePrefix = eEmail.split('@')[0];
+
+    if (eEmail && uEmail && eEmail === uEmail) return true;
+    if (ePrefix && uPrefix && ePrefix === uPrefix) return true;
+    if (eName && uName && (eName === uName || eName.includes(uName) || uName.includes(eName))) return true;
+    if (eFirst && uFirst && eFirst.length >= 3 && eFirst === uFirst) return true;
+    return false;
+  });
+
+  return {
+    employeeId: matched?.id || null,
+    name: matched?.name || userName,
+    email: matched?.email || userEmail || "team@bytepx.com",
+    dept: matched?.dept || "Engineering"
+  };
+}
 
 export async function POST(req: NextRequest) {
   let event: any;
@@ -128,7 +149,7 @@ export async function POST(req: NextRequest) {
     // EVENT 1: ADDED TO SPACE / ONBOARDING
     // -------------------------------------------------------------
     if (eventType === 'ADDED_TO_SPACE') {
-      const prompt = ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
+      const prompt = getPositiveMorningGreeting(firstName);
       const promptCard = buildStandupPromptCard({ userName: firstName, prompt });
       return chatJson(formatChatResponse(promptCard));
     }
@@ -242,11 +263,13 @@ export async function POST(req: NextRequest) {
         const availHrs = draft?.availableHours || 0;
         const totalAccounted = +(selectedHours + availHrs).toFixed(1);
 
+        const empInfo = resolveEmployeeIdentity(userName, userEmail);
         const record: StandupRecord = {
           id: "std_" + Date.now(),
-          name: userName,
-          email: userEmail || "team@bytepx.com",
-          dept: "Engineering",
+          employeeId: empInfo.employeeId,
+          name: empInfo.name,
+          email: empInfo.email,
+          dept: empInfo.dept,
           tasks: cleanTsk,
           hours: selectedHours,
           project: cleanProj,
@@ -336,7 +359,7 @@ export async function POST(req: NextRequest) {
 
     // Case 3A: Greeting or Help Command -> Return Standup Prompt Card
     if (!cleanText || ['hi', 'hello', 'hey', 'help', '/standup', '/sync', 'standup'].includes(lowerText)) {
-      const prompt = ROTATING_PROMPTS[Math.floor(Math.random() * ROTATING_PROMPTS.length)];
+      const prompt = getPositiveMorningGreeting(firstName);
       const promptCard = buildStandupPromptCard({ userName: firstName, prompt });
       return chatJson(formatChatResponse(promptCard));
     }
@@ -501,12 +524,15 @@ export async function POST(req: NextRequest) {
       }
 
       // Employee provided their hours! Save standup immediately
+      const empInfo = resolveEmployeeIdentity(userName, userEmail);
       const record: StandupRecord = {
         id: "std_" + Date.now(),
-        name: userName,
-        email: userEmail || "team@bytepx.com",
-        dept: "Engineering",
+        employeeId: empInfo.employeeId,
+        name: empInfo.name,
+        email: empInfo.email,
+        dept: empInfo.dept,
         tasks: chosenTasks,
+        taskList: parsed.taskList,
         hours: chosenHours,
         project: chosenProject,
         blocker: chosenBlocker,
@@ -596,12 +622,15 @@ export async function POST(req: NextRequest) {
     const finalProject = parsed.project || (parsed.tasks ? parsed.tasks.split(/[,;\n]/)[0].slice(0, 35) : 'Daily Tasks');
     const finalTasks = parsed.tasks || cleanText;
 
+    const empInfo = resolveEmployeeIdentity(userName, userEmail);
     const record: StandupRecord = {
       id: "std_" + Date.now(),
-      name: userName,
-      email: userEmail || "team@bytepx.com",
-      dept: "Engineering",
+      employeeId: empInfo.employeeId,
+      name: empInfo.name,
+      email: empInfo.email,
+      dept: empInfo.dept,
       tasks: finalTasks,
+      taskList: parsed.taskList,
       hours: finalHours,
       project: finalProject,
       blocker: parsed.blocker || "None",

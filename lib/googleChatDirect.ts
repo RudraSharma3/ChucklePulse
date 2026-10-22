@@ -1,6 +1,12 @@
 import crypto from 'crypto';
 import { db } from './db';
-import { buildStandupPromptCard, formatLocalDate, getLocalHour } from './googleChatHelper';
+import {
+  buildStandupPromptCard,
+  formatLocalDate,
+  getLocalHour,
+  getLocalMinute,
+  getPositiveMorningGreeting
+} from './googleChatHelper';
 import { Employee, StandupRecord } from './types';
 
 interface ServiceAccountCredentials {
@@ -336,12 +342,11 @@ export async function hasSpaceActivityToday(spaceName: string, token: string): P
     const now = new Date();
     const todayLocal = formatLocalDate(now).trim();
     const todayUTC = now.toISOString().slice(0, 10);
-    const startOfTodayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1)).toISOString();
 
     let messages: any[] = [];
     try {
-      const filterUrl = `https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=30&filter=${encodeURIComponent(`createTime > "${startOfTodayUTC}"`)}`;
-      const res = await fetch(filterUrl, {
+      // Query newest messages first with orderBy=createTime DESC
+      const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=25&orderBy=createTime%20DESC`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -352,7 +357,7 @@ export async function hasSpaceActivityToday(spaceName: string, token: string): P
 
     if (messages.length === 0) {
       try {
-        const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=30`, {
+        const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=25`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         if (res.ok) {
@@ -402,8 +407,10 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
   // Strictly enforce 12:00 PM cutoff: No follow-up nudges permitted after 12:00 PM local time
   if (isNudge) {
     const currentHour = getLocalHour(new Date());
-    if (currentHour >= 12) {
-      console.log(`[StandupBot] Follow-up window closed (current local hour is ${currentHour}:00). Nudges are only sent before 12:00 PM.`);
+    const currentMinute = getLocalMinute(new Date());
+    // Strictly allowed up to 12:00 PM (with 2-min execution grace up to 12:02 PM)
+    if (currentHour > 12 || (currentHour === 12 && currentMinute > 2)) {
+      console.log(`[StandupBot] Follow-up window closed (current local time is ${currentHour}:${currentMinute}). Nudges are only sent before 12:00 PM.`);
       return {
         success: true,
         sent: 0,
@@ -531,9 +538,14 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
       }
     }
 
+    const isCustomPrompt = settings.botPrompt &&
+      !settings.botPrompt.includes("Coffee level at 80%") &&
+      !settings.botPrompt.includes("coffee level") &&
+      settings.botPrompt.trim().length > 10;
+
     const promptText = isNudge
       ? "⏰ Friendly Standup Reminder! Just checking in—did you get a chance to log your tasks and hours for today?"
-      : (settings.botPrompt || "Good morning champion! ☕ What epic tasks are you tackling today?");
+      : (isCustomPrompt ? settings.botPrompt : getPositiveMorningGreeting(firstName));
 
     const card = buildStandupPromptCard({
       userName: firstName,
@@ -564,5 +576,81 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     targets: successfulTargets,
     errors
   };
+}
+
+/**
+ * Scans active employee Google Chat spaces to reconstruct today's standup entries directly
+ * from real-time Google Chat messages (resolves serverless cold container desync!).
+ */
+export async function syncStandupsFromGoogleChat(): Promise<StandupRecord[]> {
+  try {
+    const creds = getServiceAccountCredentials();
+    if (!creds) return [];
+    const token = await getGoogleChatAccessToken();
+    const employees = await db.getEmployees();
+    const now = new Date();
+    const todayLocal = formatLocalDate(now).trim();
+    const todayUTC = now.toISOString().slice(0, 10);
+    const updatedStandups: StandupRecord[] = [];
+
+    for (const emp of employees) {
+      const spaceName = emp.webhookUrl;
+      if (!spaceName || !spaceName.startsWith('spaces/')) continue;
+      const cleanSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
+
+      try {
+        const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=15&orderBy=createTime%20DESC`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const messages = data.messages || [];
+
+        // Find today's latest human message or confirmation card
+        for (const msg of messages) {
+          const createTime = msg.createTime || "";
+          if (!createTime) continue;
+          const msgDate = new Date(createTime);
+          const msgLocal = formatLocalDate(msgDate).trim();
+          const msgUTC = createTime.slice(0, 10);
+          const isToday = msgLocal === todayLocal || msgUTC === todayUTC || (now.getTime() - msgDate.getTime() < 18 * 60 * 60 * 1000);
+          if (!isToday) continue;
+
+          // If human sent a standup message
+          if ((msg.sender?.type === 'HUMAN' || msg.sender?.type === 'USER') && msg.text) {
+            const cleanText = msg.text.replace(/^<users\/[^>]+>\s*/i, '').replace(/^@[\w\s.-]+\s*/i, '').trim();
+            if (cleanText.length >= 3 && !['hi', 'hello', 'hey', 'help'].includes(cleanText.toLowerCase())) {
+              const { parseStandupMessage } = await import('./parser');
+              const parsed = parseStandupMessage(cleanText);
+              if (parsed.hasExplicitHours || parsed.isOnLeave || parsed.isAwaitingTask || parsed.hours > 0) {
+                const rec: StandupRecord = {
+                  id: `std_${msgDate.getTime()}`,
+                  employeeId: emp.id,
+                  name: emp.name,
+                  email: emp.email,
+                  dept: emp.dept || 'Engineering',
+                  tasks: parsed.tasks,
+                  taskList: parsed.taskList,
+                  hours: parsed.hours,
+                  project: parsed.project,
+                  blocker: parsed.blocker,
+                  date: msgLocal,
+                  time: msgDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata', hour12: true }),
+                  source: "Google Chat 1:1 Bot",
+                  rawText: cleanText
+                };
+                await db.saveStandup(rec);
+                updatedStandups.push(rec);
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    return updatedStandups;
+  } catch (err) {
+    return [];
+  }
 }
 

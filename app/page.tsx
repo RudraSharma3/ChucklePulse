@@ -856,7 +856,7 @@ export default function StandupDashboard() {
               <Download className="w-4 h-4" />
             </button>
             <button
-              onClick={fetchData}
+              onClick={() => fetchData()}
               title="Refresh dashboard"
               className="p-2 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-[#111111] hover:bg-slate-100 dark:hover:bg-[#181818] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm transition-all cursor-pointer"
             >

@@ -1,0 +1,8 @@
+# Enforce consistent line endings across platforms
+* text=auto
+
+# Shell scripts and hooks must always have LF line endings
+*.sh text eol=lf
+*.bash text eol=lf
+.githooks/* text eol=lf
+pre-commit text eol=lf

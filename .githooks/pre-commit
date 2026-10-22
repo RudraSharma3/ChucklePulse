@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# AI Operating System Pre-Commit Secret Guard Hook
+# High-precision security scanner preventing hardcoded secrets and credentials.
+
+set -o pipefail
+
+echo "🔍 [AI-OS Guard] Scanning staged changes for credentials and secrets..."
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+ALLOWLIST_FILE="$REPO_ROOT/.ai/secret-allowlist.txt"
+PATTERNS_FILE="$REPO_ROOT/.ai/secret-patterns.txt"
+
+# --- 1. Check for Staged Environment (.env) Files ---
+# Block .env at any depth, but allow .env.example, .env.sample, .env.template, .env.dist
+STAGED_FILES=$(git diff --cached --name-only)
+BLOCKED_ENV_FILES=""
+
+if [ -n "$STAGED_FILES" ]; then
+    while IFS= read -r file; do
+        basename_file=$(basename "$file")
+        if [[ "$basename_file" =~ ^\.env($|\.) ]]; then
+            # Check if it's an allowed template file
+            if [[ "$basename_file" =~ ^\.env\.(example|sample|template|dist)$ ]]; then
+                continue
+            fi
+            BLOCKED_ENV_FILES="${BLOCKED_ENV_FILES}   • $file"$'\n'
+        fi
+    done <<< "$STAGED_FILES"
+fi
+
+if [ -n "$BLOCKED_ENV_FILES" ]; then
+    echo ""
+    echo "❌ [AI-OS Guard BLOCKED COMMIT]: Staged environment file(s) detected:"
+    echo "$BLOCKED_ENV_FILES"
+    echo "💡 REMEDIATION:"
+    echo "   1. Unstage environment file(s):"
+    echo "      git reset <file>"
+    echo "   2. Ensure environment files are ignored in .gitignore:"
+    echo "      echo \".env*\" >> .gitignore"
+    echo "      echo \"!.env.example\" >> .gitignore"
+    echo "   3. Commit again without staging sensitive files."
+    echo ""
+    exit 1
+fi
+
+# --- 2. Check Staged Content (Added Lines Only) ---
+# If gitleaks is installed, run it first
+if command -v gitleaks >/dev/null 2>&1; then
+    if ! gitleaks protect --staged --no-banner; then
+        echo ""
+        echo "❌ [AI-OS Guard BLOCKED COMMIT]: Gitleaks detected sensitive credentials in staged diff!"
+        echo "💡 REMEDIATION: Remove sensitive tokens from your code and use environment variables."
+        exit 1
+    fi
+fi
+
+# Built-in High-Precision Pattern Scanner
+# Get ONLY added lines from staged diff (lines starting with '+' but dropping '+++ ' diff headers)
+ADDED_DIFF=$(git diff --cached -U0 | grep -E '^\+' | grep -v -E '^\+\+\+[[:space:]]' | sed 's/^\+//' || true)
+
+if [ -z "$ADDED_DIFF" ]; then
+    echo "✅ [AI-OS Guard] No newly added content to scan. Clean commit!"
+    exit 0
+fi
+
+# Load Allowlisted Entries
+ALLOWLIST_ENTRIES=()
+if [ -f "$ALLOWLIST_FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Ignore comments and empty lines
+        clean_line=$(echo "$line" | sed 's/#.*//' | tr -d ' \t\r\n')
+        if [ -n "$clean_line" ]; then
+            ALLOWLIST_ENTRIES+=("$clean_line")
+        fi
+    done < "$ALLOWLIST_FILE"
+fi
+
+# Load or Define Patterns
+declare -a SCAN_PATTERNS
+if [ -f "$PATTERNS_FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+        SCAN_PATTERNS+=("$line")
+    done < "$PATTERNS_FILE"
+else
+    # Fallback built-in patterns
+    SCAN_PATTERNS=(
+        "OpenAI API Key (Standard)|sk-[a-zA-Z0-9]{20,}"
+        "OpenAI API Key (Project)|sk-proj-[a-zA-Z0-9_-]{20,}"
+        "Anthropic API Key|sk-ant-[a-zA-Z0-9_-]{20,}"
+        "AWS Access Key ID|(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}"
+        "GitHub Token|(ghp|gho|ghu|ghs|ghr|github_pat)_[a-zA-Z0-9_]{16,}"
+        "Stripe Secret Key|sk_live_[0-9a-zA-Z]{20,}"
+        "Google API Key|AIza[0-9A-Za-z_-]{30,}"
+        "Slack Token|xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*"
+        "Private Key Header|-----BEGIN (RSA|EC|DSA|OPENSSH|PGP) PRIVATE KEY-----"
+        "Database URL with Credentials|[a-zA-Z0-9+.-]+://[^:@[:space:]]+:[^@[:space:]]+@[a-zA-Z0-9.-]+"
+        "JWT Token|eyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"
+    )
+fi
+
+VIOLATIONS_FOUND=0
+DETECTED_NAMES=()
+
+while IFS= read -r diff_line || [ -n "$diff_line" ]; do
+    [ -z "$diff_line" ] && continue
+    
+    # Check if line contains an allowlisted token
+    is_allowlisted=0
+    for allow_entry in "${ALLOWLIST_ENTRIES[@]}"; do
+        if [[ "$diff_line" == *"$allow_entry"* ]]; then
+            is_allowlisted=1
+            break
+        fi
+    done
+    [ "$is_allowlisted" -eq 1 ] && continue
+    
+    for pattern_entry in "${SCAN_PATTERNS[@]}"; do
+        name="${pattern_entry%%|*}"
+        regex="${pattern_entry#*|}"
+        
+        if [[ "$diff_line" =~ $regex ]]; then
+            VIOLATIONS_FOUND=$((VIOLATIONS_FOUND + 1))
+            DETECTED_NAMES+=("$name")
+        fi
+    done
+done <<< "$ADDED_DIFF"
+
+if [ "$VIOLATIONS_FOUND" -gt 0 ]; then
+    echo ""
+    echo "❌ [AI-OS Guard BLOCKED COMMIT]: High-risk credentials detected in staged code!"
+    echo "   Detected secret types:"
+    # Unique detected names
+    printf '%s\n' "${DETECTED_NAMES[@]}" | sort -u | while IFS= read -r dname; do
+        echo "   • $dname"
+    done
+    echo ""
+    echo "💡 REMEDIATION:"
+    echo "   1. Replace hardcoded tokens with environment variables (e.g. process.env.API_KEY, os.getenv)."
+    echo "   2. If this is a synthetic test fixture, add its exact token to .ai/secret-allowlist.txt."
+    echo "   3. Re-stage your cleaned files and commit again."
+    echo ""
+    exit 1
+fi
+
+echo "✅ [AI-OS Guard] Secret hygiene check passed. Clean commit!"
+exit 0

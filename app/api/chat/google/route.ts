@@ -436,17 +436,32 @@ export async function POST(req: NextRequest) {
       }
 
       if (parsed.isOnlyHours || parsed.hasExplicitHours) {
-        const addHours = parsed.hours > 0 ? parsed.hours : 0;
-        chosenHours = (existingDraft.hours && existingDraft.hours > 0)
-          ? +(existingDraft.hours + addHours).toFixed(1)
-          : addHours;
-        if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 2 && !parsed.isOnlyHours) {
-          chosenTasks = `${existingDraft.tasks}, ${parsed.tasks}`;
-        } else if (cleanText && !parsed.isOnlyHours && cleanText.length > 3) {
-          chosenTasks = `${existingDraft.tasks}, ${parsed.tasks || cleanText}`;
-        }
-        if (parsed.project && parsed.project !== 'Daily Tasks' && !chosenProject.toLowerCase().includes(parsed.project.toLowerCase())) {
-          chosenProject = `${chosenProject} + ${parsed.project}`;
+        // If parsed standup alone accounts for 8.0+ hours, or contains multiple projects,
+        // treat it as a complete standup replacement rather than appending to partial draft
+        if (parsed.hours >= 8.0 || (parsed.project && parsed.project.includes('+'))) {
+          chosenHours = parsed.hours;
+          chosenTasks = parsed.tasks;
+          chosenProject = parsed.project;
+        } else {
+          const addHours = parsed.hours > 0 ? parsed.hours : 0;
+          chosenHours = (existingDraft.hours && existingDraft.hours > 0)
+            ? +(existingDraft.hours + addHours).toFixed(1)
+            : addHours;
+
+          // Clean any previous typo/hours artifacts from existing draft
+          const cleanPrevProject = chosenProject.replace(/\s*\b\d+(?:\.\d+)?\s*(?:hours?|hoyrs?|hrss?|hrs?|hourse?|houre?|hurs?|hur|hors?|hor|ours?|our|hrus|h)\b/gi, '').trim();
+          const cleanPrevTasks = chosenTasks.replace(/\s*\b\d+(?:\.\d+)?\s*(?:hours?|hoyrs?|hrss?|hrs?|hourse?|houre?|hurs?|hur|hors?|hor|ours?|our|hrus|h)\b/gi, '').trim();
+
+          if (parsed.tasks && parsed.tasks !== cleanText && parsed.tasks.length > 2 && !parsed.isOnlyHours) {
+            chosenTasks = `${cleanPrevTasks}, ${parsed.tasks}`;
+          } else if (cleanText && !parsed.isOnlyHours && cleanText.length > 3) {
+            chosenTasks = `${cleanPrevTasks}, ${parsed.tasks || cleanText}`;
+          }
+          if (parsed.project && parsed.project !== 'Daily Tasks' && !cleanPrevProject.toLowerCase().includes(parsed.project.toLowerCase())) {
+            chosenProject = `${cleanPrevProject} + ${parsed.project}`;
+          } else {
+            chosenProject = cleanPrevProject || parsed.project;
+          }
         }
       } else if (parsed.isOnLeave || /half\s+day|day\s+off|leave/i.test(lowerText)) {
         chosenHours = 0.0;

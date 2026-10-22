@@ -9,6 +9,10 @@
     {
       "path": "/api/trigger-bot?action=nudge",
       "schedule": "45 5 * * 1-5"
+    },
+    {
+      "path": "/api/trigger-bot?action=nudge",
+      "schedule": "25 6 * * 1-5"
     }
   ]
 }

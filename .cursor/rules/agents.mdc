@@ -1,0 +1,7 @@
+---
+description: Canonical Agent Instructions and Operating Rules
+globs: *
+alwaysApply: true
+---
+
+Read `AGENTS.md` before taking any action. Follow all instructions, prompt contracts, architectural conventions, and learned rules defined in `AGENTS.md`.

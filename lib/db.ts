@@ -433,7 +433,7 @@ export const db = {
     return list;
   },
 
-  getPendingDraft: async (userKey?: string, spaceName?: string, userName?: string): Promise<{ tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string } | null> => {
+  getPendingDraft: async (userKey?: string, spaceName?: string, userName?: string): Promise<{ tasks: string; project: string; blocker: string; hours?: number; availableHours?: number; remainingHours?: number; date: string } | null> => {
     if (!userKey && !spaceName && !userName) return null;
 
     const candidates = [
@@ -490,7 +490,7 @@ export const db = {
     return null;
   },
 
-  getPendingDraftSync: (userKey?: string): { tasks: string; project: string; blocker: string; hours?: number; remainingHours?: number; date: string } | null => {
+  getPendingDraftSync: (userKey?: string): { tasks: string; project: string; blocker: string; hours?: number; availableHours?: number; remainingHours?: number; date: string } | null => {
     if (!userKey) return null;
     const k = userKey.toLowerCase().trim();
     if (memoryDrafts[k] && isDraftFresh(memoryDrafts[k])) return memoryDrafts[k];

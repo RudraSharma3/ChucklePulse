@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { db } from './db';
-import { buildStandupPromptCard, buildRemainingHoursCard, buildHoursRequestCard, formatLocalDate, getLocalHour } from './googleChatHelper';
+import { buildStandupPromptCard, formatLocalDate, getLocalHour } from './googleChatHelper';
 import { Employee, StandupRecord } from './types';
 
 interface ServiceAccountCredentials {
@@ -40,7 +40,7 @@ export function getServiceAccountCredentials(): ServiceAccountCredentials | null
 
   // 3. Check Settings from DB / Dashboard
   try {
-    const settings = db.getSettings();
+    const settings = db.getSettingsSync();
     if (settings.googleServiceAccountKey) {
       const parsed = JSON.parse(settings.googleServiceAccountKey);
       if (parsed.client_email && parsed.private_key) {
@@ -281,11 +281,18 @@ export function isStandupForToday(dateStr?: string): boolean {
 const dailyNudgedEmployees: Map<string, string> = new Map(); // key -> YYYY-MM-DD
 
 /**
- * Checks if an employee has already submitted their full standup or leave for today
+ * Checks if an employee has already submitted their standup, leave, or input for today
  */
 export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[]): boolean {
+  const todayLocal = formatLocalDate(new Date()).trim();
+
   // 1. Direct check on employee metadata
   if (emp.lastStandupDate && isStandupForToday(emp.lastStandupDate)) {
+    return true;
+  }
+
+  // 2. Direct check on employee pending draft (if draft exists from today, employee already replied/filled input!)
+  if (emp.pendingDraft && (emp.pendingDraft.date === todayLocal || isStandupForToday(emp.pendingDraft.date))) {
     return true;
   }
 
@@ -293,6 +300,12 @@ export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[
   const empName = (emp.name || "").toLowerCase().trim();
   const empFirst = empName.split(' ')[0];
   const empPrefix = empEmail.split('@')[0];
+
+  // 3. Direct check on synchronous draft
+  const syncDraft = db.getPendingDraftSync(empEmail);
+  if (syncDraft && (syncDraft.date === todayLocal || isStandupForToday(syncDraft.date))) {
+    return true;
+  }
 
   return standups.some(s => {
     if (!isStandupForToday(s.date)) return false;
@@ -310,17 +323,7 @@ export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[
     else if (empName && sName && (empName === sName || empName.includes(sName) || sName.includes(empName))) isMatch = true;
     else if (empFirst && sFirst && empFirst.length >= 3 && empFirst === sFirst) isMatch = true;
 
-    if (!isMatch) return false;
-
-    // Any recorded standup with hours > 0 or valid tasks or leave counts as submitted
-    const hasHours = s.hours !== undefined && s.hours > 0;
-    const hasTasks = Boolean(s.tasks && s.tasks.trim().length > 3 && s.tasks.toLowerCase() !== 'general tasks');
-    const isLeave = Boolean(
-      (s.blocker && s.blocker.toLowerCase().includes('leave')) ||
-      (s.tasks && s.tasks.toLowerCase().includes('leave'))
-    );
-
-    return hasHours || hasTasks || isLeave;
+    return isMatch;
   });
 }
 
@@ -330,15 +333,36 @@ export function isEmployeeCompletedToday(emp: Employee, standups: StandupRecord[
 export async function hasSpaceActivityToday(spaceName: string, token: string): Promise<boolean> {
   try {
     const cleanSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
-    const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=5`, {
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    const messages: any[] = data.messages || [];
     const now = new Date();
     const todayLocal = formatLocalDate(now).trim();
     const todayUTC = now.toISOString().slice(0, 10);
+    const startOfTodayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1)).toISOString();
+
+    let messages: any[] = [];
+    try {
+      const filterUrl = `https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=30&filter=${encodeURIComponent(`createTime > "${startOfTodayUTC}"`)}`;
+      const res = await fetch(filterUrl, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        messages = data.messages || [];
+      }
+    } catch (e) {}
+
+    if (messages.length === 0) {
+      try {
+        const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=30`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          messages = data.messages || [];
+        }
+      } catch (e) {}
+    }
+
+    if (!messages || messages.length === 0) return false;
 
     for (const msg of messages) {
       const createTime: string = msg.createTime || "";
@@ -349,12 +373,20 @@ export async function hasSpaceActivityToday(spaceName: string, token: string): P
 
       const isToday = msgLocal === todayLocal || msgUTC === todayUTC || (now.getTime() - msgDate.getTime() < 16 * 60 * 60 * 1000);
       if (isToday) {
-        // If human sent a message today, or bot sent a confirmation card:
+        // 1. If human sent ANY message today:
         if (msg.sender?.type === 'HUMAN' || msg.sender?.type === 'USER') {
           return true;
         }
+        // 2. If bot already processed or replied to input today:
         const textContent = JSON.stringify(msg);
-        if (textContent.includes('Standup Logged') || textContent.includes('Standup Recorded') || textContent.includes('Standup Updated')) {
+        if (
+          textContent.includes('Standup Logged') ||
+          textContent.includes('Standup Recorded') ||
+          textContent.includes('Standup Updated') ||
+          textContent.includes('Capacity Check') ||
+          textContent.includes('Daily Capacity Check') ||
+          textContent.includes('Confirmation')
+        ) {
           return true;
         }
       }
@@ -490,33 +522,23 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
 
     const firstName = emp.name.split(' ')[0] || "Champion";
     const userKey = emp.email.toLowerCase();
-    const draft = isNudge ? (await db.getPendingDraft(userKey, spaceName, emp.name)) : null;
 
-    let card;
-    if (isNudge && draft && draft.tasks) {
-      card = buildHoursRequestCard({
-        userName: firstName,
-        tasks: draft.tasks,
-        project: draft.project || 'Daily Tasks'
-      });
-    } else if (isNudge && draft && draft.hours && draft.hours > 0 && draft.remainingHours > 0) {
-      card = buildRemainingHoursCard({
-        userName: firstName,
-        project: draft.project,
-        tasks: draft.tasks,
-        loggedHours: draft.hours,
-        remainingHours: draft.remainingHours
-      });
-    } else {
-      const promptText = isNudge
-        ? "⏰ Friendly Standup Reminder! Just checking in—did you get a chance to log your tasks and hours for today?"
-        : (settings.botPrompt || "Good morning champion! ☕ What epic tasks are you tackling today?");
-
-      card = buildStandupPromptCard({
-        userName: firstName,
-        prompt: promptText
-      });
+    // In nudge mode: if employee already replied or has a draft, DO NOT send a follow-up popup!
+    if (isNudge) {
+      const draft = await db.getPendingDraft(userKey, spaceName, emp.name);
+      if (draft && (draft.date === todayLocal || isStandupForToday(draft.date))) {
+        continue;
+      }
     }
+
+    const promptText = isNudge
+      ? "⏰ Friendly Standup Reminder! Just checking in—did you get a chance to log your tasks and hours for today?"
+      : (settings.botPrompt || "Good morning champion! ☕ What epic tasks are you tackling today?");
+
+    const card = buildStandupPromptCard({
+      userName: firstName,
+      prompt: promptText
+    });
 
     const result = await sendDirectMessageToSpace(spaceName, card);
     if (result.success) {

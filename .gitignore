@@ -7,3 +7,13 @@ node_modules/
 .vercel
 tsconfig.tsbuildinfo
 
+
+# --- AI-OS START ---
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+!.env.dist
+# --- AI-OS END ---
+

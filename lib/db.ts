@@ -36,7 +36,7 @@ const DEFAULT_SETTINGS: CompanySettings = {
   nudgeIntervalMinutes: 45,
   maxNudges: 3,
   googleChatWebhookUrl: "",
-  botPrompt: "Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?",
+  botPrompt: "",
   gifTag: "work-coffee",
   theme: "light"
 };

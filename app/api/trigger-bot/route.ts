@@ -22,22 +22,24 @@ async function handleTrigger(req: NextRequest) {
     let serviceAccountResult: any = null;
 
     if (action === "nudge") {
-      const { getLocalHour } = await import("@/lib/googleChatHelper");
+      const { getLocalHour, getLocalMinute } = await import("@/lib/googleChatHelper");
       const currentHour = getLocalHour(new Date());
-      if (currentHour >= 12) {
+      const currentMinute = getLocalMinute(new Date());
+      if (currentHour > 12 || (currentHour === 12 && currentMinute > 2)) {
         return NextResponse.json({
           success: true,
           action: "nudge",
           directSent: false,
-          message: "Follow-up window closed: Standup follow-ups are only allowed before 12:00 PM."
+          message: "Follow-up window closed: Standup follow-ups are strictly allowed before 12:00 PM only."
         });
       }
     }
 
-    // 1. Direct 1:1 DM Broadcast via Google Cloud Service Account (NO Apps Script needed!)
+    // 1. Direct 1:1 DM Broadcast via Google Cloud Service Account
+    let creds: any = null;
     try {
       const { getServiceAccountCredentials, broadcastDirectStandup } = await import("@/lib/googleChatDirect");
-      const creds = getServiceAccountCredentials();
+      creds = getServiceAccountCredentials();
       if (creds) {
         serviceAccountResult = await broadcastDirectStandup(action === "nudge");
         if (serviceAccountResult.sent > 0) {
@@ -48,12 +50,18 @@ async function handleTrigger(req: NextRequest) {
       directError = `Service Account DM: ${saErr.message}`;
     }
 
-    // 2. Direct Webhook Delivery (if Google Chat Webhook URL is set)
-    if (settings.googleChatWebhookUrl && settings.googleChatWebhookUrl.startsWith("http")) {
+    // 2. Webhook Fallback Delivery (ONLY if Service Account is NOT configured, preventing duplicate popups)
+    if (!creds && settings.googleChatWebhookUrl && settings.googleChatWebhookUrl.startsWith("http")) {
       try {
+        const { getPositiveMorningGreeting } = await import("@/lib/googleChatHelper");
+        const isCustomPrompt = settings.botPrompt &&
+          !settings.botPrompt.includes("Coffee level at 80%") &&
+          !settings.botPrompt.includes("coffee level") &&
+          settings.botPrompt.trim().length > 10;
+
         const promptText = action === "nudge"
           ? "⏰ Friendly Standup Reminder! Just checking in—did you get a chance to log your tasks and hours for today?"
-          : (settings.botPrompt || "Good morning team! ☕ Coffee level at 80%? What epic tasks are occupying your hours today?");
+          : (isCustomPrompt ? settings.botPrompt : getPositiveMorningGreeting());
 
         const card = buildStandupPromptCard({
           userName: "Team",

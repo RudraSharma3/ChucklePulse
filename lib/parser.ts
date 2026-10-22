@@ -2,7 +2,9 @@ function cleanProjectOrTask(raw: string): string {
   return raw
     .replace(/^(?:and\s+on|and\s+also|and\s+then|and|on|in|with|i\s+am\s+on|i\s+am\s+working\s+on|i\s+will\s+work\s+on|working\s+on|i\s+am|im|i\'m)\s+/gi, '')
     .replace(/^project\s*[-:]?\s*/gi, 'Project ')
-    .replace(/^[-:,\s]+|[-:,\s]+$/g, '')
+    .replace(/^[-:=,;\s~|]+|[-:=,;\s~|]+$/g, '')
+    .replace(/\s*=\s*$/g, '')
+    .replace(/^\s*=\s*/g, '')
     .trim();
 }
 
@@ -10,17 +12,28 @@ function capitalizeWords(str: string): string {
   return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
-export const DURATION_UNIT_PATTERN = '(?:minutes?|minute|mins?|min|m\\b|hours?|hoyrs?|hrss?|hrs?|hourse?|houre?|hurs?|hur|hors?|hor|ours?|our|hrus|h\\b)';
+export const DURATION_UNIT_PATTERN = '(?:minutes?|minute|mins?|min|m|hours?|hoyrs?|hrss?|hrs?|hourse?|houre?|hurs?|hur|hors?|hor|ours?|our|hrus|h)';
 
-export function parseDurationToHours(numStr: string, unitStr?: string): number {
+export function parseDurationToHours(numStr: string, unitStr?: string, minNumStr?: string): number {
   const val = parseFloat(numStr);
   if (isNaN(val) || val <= 0) return 0;
   
   const unit = (unitStr || '').toLowerCase().trim();
+  let baseHours = 0;
   if (/^(?:min|mins|minute|minutes|m)$/.test(unit)) {
-    return +(val / 60).toFixed(2);
+    baseHours = val / 60;
+  } else {
+    baseHours = val;
   }
-  return +val.toFixed(2);
+
+  if (minNumStr) {
+    const minVal = parseFloat(minNumStr);
+    if (!isNaN(minVal) && minVal > 0) {
+      baseHours += minVal / 60;
+    }
+  }
+
+  return +(baseHours.toFixed(2));
 }
 
 /**
@@ -50,18 +63,29 @@ export function parseStandupMessage(text: string): {
 
   // Check if message is ONLY hours/minutes (e.g., "7.5", "7.5h", "8 hours", "30min", "30 mins", "0.5 hrs", "4 ours")
   const onlyHoursMatch = clean.match(new RegExp(`^(\\d+(?:\\.\\d+)?)\\s*(${DURATION_UNIT_PATTERN})?$`, 'i'));
-  let isOnlyHours = false;
   if (onlyHoursMatch) {
     const rawVal = onlyHoursMatch[1];
     const rawUnit = onlyHoursMatch[2] || 'hrs';
     const parsedH = parseDurationToHours(rawVal, rawUnit);
     if (parsedH > 0 && parsedH <= 24) {
-      isOnlyHours = true;
+      return {
+        project: "Daily Tasks",
+        hours: parsedH,
+        availableHours: 0,
+        hasExplicitHours: true,
+        isOnlyHours: true,
+        isAwaitingTask: false,
+        isOnLeave: false,
+        isNonWorkActivity: false,
+        tasks: clean,
+        taskList: [clean],
+        blocker: "None"
+      };
     }
   }
 
   // 1. Detect Special Work Statuses (Unassigned, Waiting for Tasks, On Leave, Non-work)
-  const isAwaitingTask = /^(?:i\s+)?(?:didnt\s+get|didn\'t\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench)$/i.test(lower);
+  const isAwaitingTask = /^(?:i\s+)?(?:didnt\s+get|didn\'t\s+get|no\s+task|waiting\s+for\s+task|awaiting\s+task|not\s+assigned|no\s+work\s+yet|free\s+today|bench)$/i.test(lower) || /\b(didnt\s+get\s+task|no\s+task\s+yet|waiting\s+for\s+tasks?|awaiting\s+tasks?)\b/i.test(lower);
   const isOnLeave = /on\s+leave|sick\s+leave|day\s+off|vacation|out\s+of\s+office|holiday|taking\s+leave|personal\s+leave|half\s+day\s+leave|half\s+day/i.test(lower);
   const isNonWorkActivity = /\b(personal\s+work|personal\s+stuff|personal\s+errand|personal\s+errands|personal\s+task|personal\s+tasks|private\s+work|non[\s-]work|errands?|timepass)\b/i.test(lower) || /^(?:personal|break|lunch|gym|chill|chilling|idle|nothing|timepass)$/i.test(lower);
 
@@ -135,32 +159,40 @@ export function parseStandupMessage(text: string): {
     .trim();
 
   // 3. Multi-Segment & Multi-Project Chunk Parsing
-  // Splits on: "and on", "and also", "and then", "and", "&", "+", newlines, semicolons, commas,
-  // or natural boundaries where a duration unit is immediately followed by a new word
+  // Splits on: newlines, semicolons, pipes, conjunctions, hyphens between projects, or duration boundaries
   const chunks = textWithoutBlocker
-    .split(new RegExp(`(?:\\s+(?:and\\s+on|and\\s+also|and\\s+then|and|&|\\+)\\s+|[\\n;]+|(?<=${DURATION_UNIT_PATTERN})\\s*,\\s*|(?<=${DURATION_UNIT_PATTERN})\\s+(?!(?:on|in|for|at|with|to|then|and)\\b)(?=[a-zA-Z])|,)`, 'i'))
+    .split(new RegExp(
+      `(?:` +
+        `[\\n;\\|]+` +
+        `|\\s+(?:and\\s+on|and\\s+also|and\\s+then|and|&|\\+)\\s+` +
+        `|\\s+[-–—]\\s+(?=[a-zA-Z])` +
+        `|(?<=\\b${DURATION_UNIT_PATTERN}\\b)\\s+(?!(?:on|in|for|at|with|to|then|and)\\b)(?=[a-zA-Z])` +
+        `|,(?!\\s*\\d)` +
+      `)`,
+      'i'
+    ))
     .map(c => c.trim())
     .filter(Boolean);
 
   const parsedSegments: Array<{ name: string; hours: number }> = [];
 
   // Matches either:
-  // (A1) [Project] [for/:/-/(/=] [Number] [Optional Unit]  -> e.g. "cygnos for 4", "cygnos: 4 hours", "cygnos (4 hrs)"
-  // (A2) [Project] [Number] [Unit]                        -> e.g. "cygnos 4 hours", "bot 4 ours", "cygnos 4h", "cygnos 30 mins"
+  // (A1) [Project] [for/:/-/(/=] [Number] [Optional Unit] [Optional extra minutes]
+  // (A2) [Project] [Number] [Unit] [Optional extra minutes]
   const chunkRegexA = new RegExp(
-    `^(?:(?:i\\s+am\\s+(?:on|working\\s+on)|i\\s+am\\s+on\\s+project|working\\s+on|work\\s+on|focusing\\s+on|focus\\s+on|on|in)\\s+)?(?:project\\s*[-:]?\\s*([a-zA-Z0-9_\\-]+)|([a-zA-Z0-9_\\-\\s]+?))\\s*(?:(?:for\\s+|-|:|=|\\bat\\b|\\()\\s*(\\d+(?:\\.\\d+)?)\\s*(${DURATION_UNIT_PATTERN})?|\\s+(\\d+(?:\\.\\d+)?)\\s*(${DURATION_UNIT_PATTERN}))\\s*\\)?$`,
+    `^(?:(?:i\\s+am\\s+(?:on|working\\s+on)|i\\s+am\\s+on\\s+project|working\\s+on|work\\s+on|focusing\\s+on|focus\\s+on|on|in)\\s+)?(?:project\\s*[-:]?\\s*([a-zA-Z0-9_\\-]+)|([a-zA-Z0-9_\\-\\s=]+?))\\s*(?:(?:for\\s+|-|:|=|\\bat\\b|\\()\\s*(\\d+(?:\\.\\d+)?)\\s*(${DURATION_UNIT_PATTERN})?(?:\\s*(?:and\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:mins?|minutes?|min|m\\b))?|\\s+(\\d+(?:\\.\\d+)?)\\s*(${DURATION_UNIT_PATTERN})(?:\\s*(?:and\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:mins?|minutes?|min|m\\b))?)\\s*\\)?$`,
     'i'
   );
 
-  // Matches: [Number] [Unit] on [Project] -> e.g. "4 hours on cygnos", "4 ours bot", "30 mins cygnos"
+  // Matches: [Number] [Unit] on [Project]
   const chunkRegexB = new RegExp(
-    `^(\\d+(?:\\.\\d+)?)\\s*(${DURATION_UNIT_PATTERN})\\s*(?:on|in|for|at|-|:)?\\s*(?:project\\s*[-:]?\\s*([a-zA-Z0-9_\\-]+)|([a-zA-Z0-9_\\-\\s]+))$`,
+    `^(\\d+(?:\\.\\d+)?)\\s*(${DURATION_UNIT_PATTERN})(?:\\s*(?:and\\s+)?(\\d+(?:\\.\\d+)?)\\s*(?:mins?|minutes?|min|m\\b))?\\s*(?:on|in|for|at|-|:)?\\s*(?:project\\s*[-:]?\\s*([a-zA-Z0-9_\\-]+)|([a-zA-Z0-9_\\-\\s=]{2,}))\\s*$`,
     'i'
   );
 
   // Matches: [Project] [Number] when in multi-item lists (e.g. "cygnos 4, bot 4")
   const chunkRegexC = chunks.length > 1
-    ? /^([a-zA-Z0-9_\-\s]+?)\s+(\d+(?:\.\d+)?)$/i
+    ? /^([a-zA-Z0-9_\-\s=]+?)\s+(\d+(?:\.\d+)?)$/i
     : null;
 
   for (const chunk of chunks) {
@@ -177,21 +209,23 @@ export function parseStandupMessage(text: string): {
       } else {
         cleanedName = capitalizeWords(cleanedName);
       }
-      const rawVal = mA[3] || mA[5];
-      const rawUnit = mA[4] || mA[6] || 'hrs';
-      const hrs = parseDurationToHours(rawVal, rawUnit);
-      if (hrs > 0 && hrs <= 24) {
+      const rawVal = mA[3] || mA[6];
+      const rawUnit = mA[4] || mA[7] || 'hrs';
+      const rawExtraMins = mA[5] || mA[8];
+      const hrs = parseDurationToHours(rawVal, rawUnit, rawExtraMins);
+      if (hrs > 0 && hrs <= 24 && cleanedName.length > 0) {
         parsedSegments.push({ name: cleanedName, hours: hrs });
       }
     } else if (mB) {
       const rawVal = mB[1];
       const rawUnit = mB[2];
-      const rawName = (mB[3] ? 'Project ' + mB[3] : mB[4]);
+      const rawExtraMins = mB[3];
+      const rawName = (mB[4] ? 'Project ' + mB[4] : mB[5]);
       let cleanedName = cleanProjectOrTask(rawName);
       if (cleanedName.length === 1) cleanedName = 'Project ' + cleanedName.toUpperCase();
       cleanedName = capitalizeWords(cleanedName);
-      const hrs = parseDurationToHours(rawVal, rawUnit);
-      if (hrs > 0 && hrs <= 24) {
+      const hrs = parseDurationToHours(rawVal, rawUnit, rawExtraMins);
+      if (hrs > 0 && hrs <= 24 && cleanedName.length > 0) {
         parsedSegments.push({ name: cleanedName, hours: hrs });
       }
     } else if (mC) {
@@ -201,14 +235,14 @@ export function parseStandupMessage(text: string): {
       if (cleanedName.length === 1) cleanedName = 'Project ' + cleanedName.toUpperCase();
       cleanedName = capitalizeWords(cleanedName);
       const hrs = parseDurationToHours(rawVal, 'hrs');
-      if (hrs > 0 && hrs <= 16) {
+      if (hrs > 0 && hrs <= 16 && cleanedName.length > 0) {
         parsedSegments.push({ name: cleanedName, hours: hrs });
       }
     }
   }
 
   if (parsedSegments.length > 0) {
-    const taskHours = +(parsedSegments.reduce((acc, s) => acc + s.hours, 0).toFixed(1));
+    const taskHours = +(parsedSegments.reduce((acc, s) => acc + s.hours, 0).toFixed(2));
     const projectNames = Array.from(new Set(parsedSegments.map(s => s.name)));
     const combinedProject = projectNames.join(' + ');
     const taskList = parsedSegments.map(s => `${s.name} (${s.hours} ${s.hours === 1 ? 'hr' : 'hrs'})`);
@@ -249,11 +283,6 @@ export function parseStandupMessage(text: string): {
       hours = 0;
       hasExplicitHours = true;
     }
-  } else if (isOnlyHours && onlyHoursMatch) {
-    const rawVal = onlyHoursMatch[1];
-    const rawUnit = onlyHoursMatch[2] || onlyHoursMatch[3] || 'hrs';
-    hours = parseDurationToHours(rawVal, rawUnit);
-    hasExplicitHours = true;
   } else if (availableHours > 0) {
     hours = 0;
     hasExplicitHours = true;
@@ -346,7 +375,7 @@ export function parseStandupMessage(text: string): {
     hours,
     availableHours,
     hasExplicitHours,
-    isOnlyHours,
+    isOnlyHours: false,
     isAwaitingTask: false,
     isOnLeave: false,
     isNonWorkActivity,

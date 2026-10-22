@@ -342,9 +342,33 @@ export default function StandupDashboard() {
 
   // Daily Live Attendance (Always strictly tracks TODAY's check-ins)
   const todaysStandups = useMemo(() => standups.filter(s => isTodayDate(s.date)), [standups]);
-  const checkedInEmails = useMemo(() => new Set(todaysStandups.map(s => s.email.toLowerCase())), [todaysStandups]);
-  const checkedInEmployees = useMemo(() => employees.filter(e => checkedInEmails.has(e.email.toLowerCase())), [employees, checkedInEmails]);
-  const pendingEmployees = useMemo(() => employees.filter(e => !checkedInEmails.has(e.email.toLowerCase())), [employees, checkedInEmails]);
+
+  const checkedInEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      const empEmail = (emp.email || "").toLowerCase().trim();
+      const empName = (emp.name || "").toLowerCase().trim();
+      const empFirst = empName.split(' ')[0];
+      const empPrefix = empEmail.split('@')[0];
+
+      return todaysStandups.some(s => {
+        const sEmail = (s.email || "").toLowerCase().trim();
+        const sName = (s.name || "").toLowerCase().trim();
+        const sFirst = sName.split(' ')[0];
+        const sPrefix = sEmail.split('@')[0];
+
+        if (empEmail && sEmail && empEmail === sEmail) return true;
+        if (empPrefix && sPrefix && empPrefix === sPrefix) return true;
+        if (empName && sName && (empName === sName || empName.includes(sName) || sName.includes(empName))) return true;
+        if (empFirst && sFirst && empFirst.length >= 3 && empFirst === sFirst) return true;
+        return false;
+      });
+    });
+  }, [employees, todaysStandups]);
+
+  const pendingEmployees = useMemo(() => {
+    const checkedInIds = new Set(checkedInEmployees.map(e => e.id));
+    return employees.filter(e => !checkedInIds.has(e.id));
+  }, [employees, checkedInEmployees]);
 
   const projectOptions = useMemo(() => {
     return Array.from(new Set(dateFilteredStandups.map(s => s.project || "General Tasks")));

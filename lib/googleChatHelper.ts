@@ -69,6 +69,49 @@ export function getLocalHour(date: Date = new Date()): number {
   return parseInt(hourStr, 10);
 }
 
+export function getLocalMinute(date: Date = new Date()): number {
+  const minStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: process.env.TIMEZONE || 'Asia/Kolkata',
+    minute: 'numeric'
+  }).format(date);
+  return parseInt(minStr, 10);
+}
+
+export const POSITIVE_MORNING_GREETINGS = [
+  "Good morning champion! 🚀 A fresh day full of possibilities awaits. What great goals are we crushing today?",
+  "Rise and shine! ☀️ Fresh energy, clear focus. What mission-critical tasks are taking center stage today?",
+  "Top of the morning! ⚡ Let’s make today count with purpose and precision. What are you building or solving today?",
+  "Good morning team! 🌟 Every big breakthrough begins with focused steps. What are your high-impact priorities today?",
+  "Hello rockstar! 🎯 Another day to innovate, excel, and make an impact. What are your planned targets for today?",
+  "Rise and conquer! 🏔️ Great work isn't an accident—it's daily dedication. What are your planned projects and hours today?",
+  "Good morning! ☕ Fuel up and let’s build excellence together. What milestones are you unlocking today?",
+  "Happy morning! 💡 Big ideas turn into reality one sprint at a time. What’s your focus and hours for today?",
+  "Morning greetings! 🌈 Bringing positive vibes and sharp execution into today. Drop your planned tasks, hours, and blockers!",
+  "Good morning everyone! 🔥 Ready to turn complex challenges into clean victories? Share your roadmap for today!",
+  "Rise and thrive! 🌿 High focus, zero clutter. What are your key deliverables for today?",
+  "Good morning! 🏆 Small daily improvements over time lead to stunning results. What are you tackling today?",
+  "Up and at 'em! 🚀 New morning, new bugs to conquer and features to ship. Let’s hear your plan for today!",
+  "Bright morning! 🌻 Bringing creative energy and sharp execution to the team today. What are you working on?",
+  "Good morning team! 🛠️ Crafting quality code and impactful work. What hours and tasks are you dedicating today?",
+  "Salute to the builders! 🏗️ Laying another solid brick of progress today. What tickets or features are in your scope?",
+  "Good morning champions! 💫 Momentum is our superpower. Share your planned hours, projects, and any blockers!",
+  "Rise and elevate! 🧗‍♂️ Aiming high and delivering with precision. What’s on your plate for today?",
+  "Morning vibes! 🎵 Smooth workflow and sharp focus ahead. Let us know what you'll be diving into today!",
+  "Good morning! 🌟 Let's own the day with great teamwork and stellar focus. What tasks are you tackling today?",
+  "Good morning champion! 🎯 Big goals, steady steps. What are your prime objectives for today?"
+];
+
+export function getPositiveMorningGreeting(userName?: string): string {
+  const now = new Date();
+  const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
+  const index = Math.abs(dayOfYear) % POSITIVE_MORNING_GREETINGS.length;
+  const base = POSITIVE_MORNING_GREETINGS[index];
+  if (userName && userName !== "Team" && userName !== "Champion" && userName.length > 1) {
+    return base.replace(/Good morning champion!|Good morning team!|Hello rockstar!|Good morning everyone!|Good morning champions!|Good morning!/i, `Good morning ${userName}!`);
+  }
+  return base;
+}
+
 /**
  * Builds an interactive Standup Prompt Card v2
  */

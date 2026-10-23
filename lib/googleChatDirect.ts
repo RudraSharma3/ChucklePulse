@@ -383,15 +383,16 @@ export async function hasSpaceActivityToday(spaceName: string, token: string): P
         if (msg.sender?.type === 'HUMAN' || msg.sender?.type === 'USER') {
           return true;
         }
-        // 2. If bot already processed or replied to input today:
+        // 2. If bot already processed, prompted, or replied in this space today:
         const textContent = JSON.stringify(msg);
         if (
-          textContent.includes('Standup Logged') ||
-          textContent.includes('Standup Recorded') ||
-          textContent.includes('Standup Updated') ||
+          textContent.includes('Standup') ||
+          textContent.includes('Good morning') ||
+          textContent.includes('BytePx Daily Standup') ||
           textContent.includes('Capacity Check') ||
           textContent.includes('Daily Capacity Check') ||
-          textContent.includes('Confirmation')
+          textContent.includes('Confirmation') ||
+          textContent.includes('Friendly Standup Reminder')
         ) {
           return true;
         }
@@ -460,6 +461,8 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
     discoveredSpaces = await discoverAllSpacesAndMembers(token);
   } catch (dErr) {}
 
+  const sentSpacesInThisRun = new Set<string>();
+
   for (const emp of eligibleEmployees) {
     const empIdentifier = (emp.email || emp.name).toLowerCase();
 
@@ -522,11 +525,16 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
       continue;
     }
 
-    // Anti-spam guard: Never re-prompt the same employee within 30 minutes (prevents duplicate crons/clicks)
+    if (sentSpacesInThisRun.has(spaceName)) {
+      continue;
+    }
+
+    // Anti-spam guard: Never re-prompt the same space or employee within 30 minutes
     const dispatchKey = `${empIdentifier}::${spaceName}`;
     const lastDispatched = lastDispatchTimestamps.get(dispatchKey) || 0;
+    const lastSpaceDispatched = lastDispatchTimestamps.get(spaceName) || 0;
     const nowMs = Date.now();
-    if (nowMs - lastDispatched < 30 * 60 * 1000) {
+    if (nowMs - lastDispatched < 30 * 60 * 1000 || nowMs - lastSpaceDispatched < 30 * 60 * 1000) {
       continue;
     }
 
@@ -563,6 +571,8 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
 
     const result = await sendDirectMessageToSpace(spaceName, card);
     if (result.success) {
+      sentSpacesInThisRun.add(spaceName);
+      lastDispatchTimestamps.set(spaceName, nowMs);
       lastDispatchTimestamps.set(dispatchKey, nowMs);
       if (isNudge) {
         dailyNudgedEmployees.set(empIdentifier, todayLocal);

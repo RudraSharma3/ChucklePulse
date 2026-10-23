@@ -69,12 +69,42 @@ function resolveEmployeeIdentity(userName: string, userEmail: string) {
   };
 }
 
+// Cache of recently processed event IDs to prevent duplicate webhook delivery
+const processedEventIds = new Map<string, number>();
+
+function isDuplicateWebhook(event: any): boolean {
+  const eventId =
+    event.message?.name ||
+    event.chat?.messagePayload?.message?.name ||
+    event.action?.actionMethodName ||
+    event.commonEventObject?.hostAppActionId ||
+    (event.eventTime && event.user?.name ? `${event.eventTime}::${event.user.name}` : null);
+
+  if (!eventId) return false;
+  const now = Date.now();
+  // Prune entries older than 2 minutes
+  for (const [k, time] of processedEventIds.entries()) {
+    if (now - time > 120000) processedEventIds.delete(k);
+  }
+
+  if (processedEventIds.has(eventId)) {
+    return true;
+  }
+  processedEventIds.set(eventId, now);
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   let event: any;
   try {
     event = await req.json();
   } catch {
     return chatJson(formatChatResponse({ text: 'Invalid JSON payload' }));
+  }
+
+  // Deduplicate rapid webhook retries from Google Chat
+  if (isDuplicateWebhook(event)) {
+    return chatJson({});
   }
 
   // 1. Detect Event Type

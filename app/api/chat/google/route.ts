@@ -4,7 +4,6 @@ import {
   buildStandupPromptCard,
   buildStandupConfirmationCard,
   buildHoursRequestCard,
-  buildRemainingHoursCard,
   buildNonWorkActivityCard,
   buildInteractiveCard,
   buildSuccessCard,
@@ -280,31 +279,6 @@ export async function POST(req: NextRequest) {
         };
 
         await db.saveStandup(record);
-
-        if (totalAccounted < 8.0) {
-          const remaining = +(8.0 - totalAccounted).toFixed(1);
-          await db.savePendingDraft(userKey, {
-            tasks: cleanTsk,
-            project: cleanProj,
-            blocker: record.blocker,
-            hours: selectedHours,
-            availableHours: availHrs,
-            remainingHours: remaining,
-            date: dateStr
-          }, spaceName, userName);
-
-          const capacityCard = buildRemainingHoursCard({
-            userName: firstName,
-            project: cleanProj,
-            tasks: cleanTsk,
-            loggedHours: selectedHours,
-            remainingHours: remaining,
-            availableHours: availHrs
-          });
-
-          return chatJson(formatChatResponse(capacityCard, { isCardAction: true }));
-        }
-
         await db.clearPendingDraft(userKey, spaceName, userName);
 
         const confirmationCard = buildStandupConfirmationCard({
@@ -409,29 +383,6 @@ export async function POST(req: NextRequest) {
     });
 
     const isUpdate = Boolean(existingStandupToday);
-
-    // If existingDraft is not in cache/storage, but the user has an existing partial standup today:
-    if (!existingDraft && existingStandupToday) {
-      let availFromBlocker = 0;
-      const mAvail = (existingStandupToday.blocker || '').match(/(\d+(?:\.\d+)?)\s*(?:hrs?|hours?|h)/i);
-      if (mAvail && /available|bench|free|standby/i.test(existingStandupToday.blocker || '')) {
-        availFromBlocker = parseFloat(mAvail[1]);
-      }
-      const loggedWork = existingStandupToday.hours || 0;
-      const totalAcc = loggedWork + availFromBlocker;
-      // If the existing standup is partial (< 8.0 hrs), treat it as an active draft!
-      if (totalAcc < 8.0) {
-        existingDraft = {
-          tasks: existingStandupToday.tasks,
-          project: existingStandupToday.project,
-          blocker: existingStandupToday.blocker,
-          hours: loggedWork,
-          availableHours: availFromBlocker,
-          remainingHours: +(8.0 - totalAcc).toFixed(1),
-          date: existingStandupToday.date
-        };
-      }
-    }
 
     // Check if user explicitly asked to reset/cancel draft
     const isExplicitReset = /^(?:reset|cancel|start\s*over|restart|clear|new\s*standup)$/i.test(cleanText.trim());
@@ -546,31 +497,6 @@ export async function POST(req: NextRequest) {
       const totalAccounted = +(chosenHours + availHrs).toFixed(1);
 
       await db.saveStandup(record);
-
-      if (totalAccounted > 0 && totalAccounted < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-        const remaining = +(8.0 - totalAccounted).toFixed(1);
-        await db.savePendingDraft(userKey, {
-          tasks: chosenTasks,
-          project: chosenProject,
-          blocker: chosenBlocker,
-          hours: chosenHours,
-          availableHours: availHrs,
-          remainingHours: remaining,
-          date: dateStr
-        }, spaceName, userName);
-
-        const capacityCard = buildRemainingHoursCard({
-          userName: firstName,
-          project: chosenProject,
-          tasks: chosenTasks,
-          loggedHours: chosenHours,
-          remainingHours: remaining,
-          availableHours: availHrs
-        });
-
-        return chatJson(formatChatResponse(capacityCard));
-      }
-
       await db.clearPendingDraft(userKey, spaceName, userName);
 
       const confirmationCard = buildStandupConfirmationCard({
@@ -646,31 +572,6 @@ export async function POST(req: NextRequest) {
 
     // Save check-in immediately to database and cloud (user is now 100% recorded!)
     await db.saveStandup(record);
-
-    if (totalAccounted > 0 && totalAccounted < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-      const remaining = +(8.0 - totalAccounted).toFixed(1);
-      await db.savePendingDraft(userKey, {
-        tasks: finalTasks,
-        project: finalProject,
-        blocker: record.blocker,
-        hours: finalHours,
-        availableHours: availHrs,
-        remainingHours: remaining,
-        date: dateStr
-      }, spaceName, userName);
-
-      const capacityCard = buildRemainingHoursCard({
-        userName: firstName,
-        project: finalProject,
-        tasks: finalTasks,
-        loggedHours: finalHours,
-        remainingHours: remaining,
-        availableHours: availHrs
-      });
-
-      return chatJson(formatChatResponse(capacityCard));
-    }
-
     await db.clearPendingDraft(userKey, spaceName, userName);
 
     // Return Standup Confirmation Card directly

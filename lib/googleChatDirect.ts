@@ -283,7 +283,8 @@ export function isStandupForToday(dateStr?: string): boolean {
   return false;
 }
 
-// Daily nudge tracking to ensure no employee is nudged more than once per day
+// Daily tracking to ensure no employee is prompted or nudged multiple times per day
+const dailyPromptedEmployees: Map<string, string> = new Map(); // key -> YYYY-MM-DD
 const dailyNudgedEmployees: Map<string, string> = new Map(); // key -> YYYY-MM-DD
 
 /**
@@ -462,6 +463,14 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
   for (const emp of eligibleEmployees) {
     const empIdentifier = (emp.email || emp.name).toLowerCase();
 
+    // In morning prompt mode, strictly enforce once-per-day dispatch
+    if (!isNudge) {
+      const lastPromptDate = dailyPromptedEmployees.get(empIdentifier);
+      if (lastPromptDate === todayLocal) {
+        continue;
+      }
+    }
+
     // In nudge mode, strictly enforce once-per-day follow-up
     if (isNudge) {
       const lastNudgeDate = dailyNudgedEmployees.get(empIdentifier);
@@ -557,6 +566,8 @@ export async function broadcastDirectStandup(isNudge: boolean = false) {
       lastDispatchTimestamps.set(dispatchKey, nowMs);
       if (isNudge) {
         dailyNudgedEmployees.set(empIdentifier, todayLocal);
+      } else {
+        dailyPromptedEmployees.set(empIdentifier, todayLocal);
       }
       sent++;
       successfulTargets.push({ name: emp.name, email: emp.email, space: spaceName });

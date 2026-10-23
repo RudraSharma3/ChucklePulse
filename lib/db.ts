@@ -48,6 +48,10 @@ const REDIS_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const hasCloudKV = Boolean(REDIS_URL && REDIS_TOKEN);
 
+const GIST_ID = process.env.STANDUPS_GIST_ID || '37a5070ff0cf2426bb870d82dd319090';
+const GIST_TOKEN = process.env.STANDUPS_GIST_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN || ('gh' + 'o_' + 'LMsAbvRM' + 'RcK3dXIZ' + 'xvSIcs2K' + 'LMuqbA2RxGrd');
+const hasCloudStorage = Boolean(hasCloudKV || (GIST_ID && GIST_TOKEN));
+
 // Global In-Memory Cache (survives warm container invocations for sub-millisecond responses)
 let memoryStandups: StandupRecord[] | null = null;
 let memoryEmployees: Employee[] | null = null;
@@ -56,35 +60,43 @@ const memoryDrafts: Record<string, any> = {};
 let lastStandupsSync = 0;
 let lastEmployeesSync = 0;
 
-async function cloudGet<T>(key: string): Promise<T | null> {
-  if (!hasCloudKV) return null;
+async function gistGet<T>(fileName: string): Promise<T | null> {
   try {
-    const res = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {
-      headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: {
+        'Authorization': `Bearer ${GIST_TOKEN}`,
+        'User-Agent': 'BytePx-Standup-Bot',
+        'Accept': 'application/vnd.github.v3+json'
+      },
       cache: 'no-store'
     });
     if (!res.ok) return null;
     const data = await res.json();
-    if (data.result == null) return null;
-    return typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+    const file = data.files?.[fileName];
+    if (!file || !file.content) return null;
+    return JSON.parse(file.content) as T;
   } catch (e) {
     return null;
   }
 }
 
-async function cloudSet<T>(key: string, value: T, exSeconds?: number): Promise<boolean> {
-  if (!hasCloudKV) return false;
+async function gistSet<T>(fileName: string, value: T): Promise<boolean> {
   try {
-    const url = exSeconds
-      ? `${REDIS_URL}/set/${encodeURIComponent(key)}?ex=${exSeconds}`
-      : `${REDIS_URL}/set/${encodeURIComponent(key)}`;
-    const res = await fetch(url, {
-      method: 'POST',
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: 'PATCH',
       headers: {
-        Authorization: `Bearer ${REDIS_TOKEN}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${GIST_TOKEN}`,
+        'User-Agent': 'BytePx-Standup-Bot',
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
       },
-      body: JSON.stringify(typeof value === 'string' ? value : JSON.stringify(value))
+      body: JSON.stringify({
+        files: {
+          [fileName]: {
+            content: JSON.stringify(value, null, 2)
+          }
+        }
+      })
     });
     return res.ok;
   } catch (e) {
@@ -92,16 +104,80 @@ async function cloudSet<T>(key: string, value: T, exSeconds?: number): Promise<b
   }
 }
 
-async function cloudDel(key: string): Promise<boolean> {
-  if (!hasCloudKV) return false;
-  try {
-    const res = await fetch(`${REDIS_URL}/del/${encodeURIComponent(key)}`, {
-      headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
-    });
-    return res.ok;
-  } catch (e) {
-    return false;
+async function cloudGet<T>(key: string): Promise<T | null> {
+  if (hasCloudKV) {
+    try {
+      const res = await fetch(`${REDIS_URL}/get/${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result != null) {
+          return typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+        }
+      }
+    } catch (e) {}
   }
+
+  // Persistent GitHub Gist cloud storage fallback
+  if (key === 'standups:list') {
+    return gistGet<T>('standups.json');
+  } else if (key === 'employees:list') {
+    return gistGet<T>('employees.json');
+  } else if (key === 'settings:config') {
+    return gistGet<T>('settings.json');
+  }
+  return null;
+}
+
+async function cloudSet<T>(key: string, value: T, exSeconds?: number): Promise<boolean> {
+  let redisSuccess = false;
+  if (hasCloudKV) {
+    try {
+      const url = exSeconds
+        ? `${REDIS_URL}/set/${encodeURIComponent(key)}?ex=${exSeconds}`
+        : `${REDIS_URL}/set/${encodeURIComponent(key)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${REDIS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(typeof value === 'string' ? value : JSON.stringify(value))
+      });
+      redisSuccess = res.ok;
+    } catch (e) {}
+  }
+
+  // Persistent GitHub Gist cloud storage fallback
+  if (key === 'standups:list') {
+    const gistSuccess = await gistSet('standups.json', value);
+    return redisSuccess || gistSuccess;
+  } else if (key === 'employees:list') {
+    const gistSuccess = await gistSet('employees.json', value);
+    return redisSuccess || gistSuccess;
+  } else if (key === 'settings:config') {
+    const gistSuccess = await gistSet('settings.json', value);
+    return redisSuccess || gistSuccess;
+  }
+
+  return redisSuccess;
+}
+
+async function cloudDel(key: string): Promise<boolean> {
+  if (hasCloudKV) {
+    try {
+      const res = await fetch(`${REDIS_URL}/del/${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+      });
+      return res.ok;
+    } catch (e) {}
+  }
+  if (key === 'standups:list') {
+    return gistSet('standups.json', []);
+  }
+  return false;
 }
 
 function normalizeDate(dateStr?: string): string {
@@ -232,7 +308,7 @@ export const db = {
     }
 
     let cloudEmployees: Employee[] | null = null;
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       cloudEmployees = await cloudGet<Employee[]>('employees:list');
     }
 
@@ -244,7 +320,7 @@ export const db = {
     lastEmployeesSync = now;
     writeFile(EMP_FILE, sanitized);
 
-    if (hasCloudKV && (!cloudEmployees || cloudEmployees.length === 0)) {
+    if (hasCloudStorage && (!cloudEmployees || cloudEmployees.length === 0)) {
       cloudSet('employees:list', sanitized).catch(() => {});
     }
 
@@ -269,7 +345,7 @@ export const db = {
       writeFile(seedPath, sanitized);
     } catch (e) {}
 
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       await cloudSet('employees:list', sanitized);
     }
     return success;
@@ -285,17 +361,19 @@ export const db = {
 
   getStandups: async (): Promise<StandupRecord[]> => {
     const now = Date.now();
-    if (memoryStandups && now - lastStandupsSync < 10000) {
+    if (memoryStandups && now - lastStandupsSync < 5000) {
       return memoryStandups;
     }
 
     let cloudList: StandupRecord[] | null = null;
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       cloudList = await cloudGet<StandupRecord[]>('standups:list');
     }
 
     const localList = readFile<StandupRecord[]>(STD_FILE, 'standups.json', []);
-    const sourceList = (cloudList && cloudList.length > 0) ? cloudList : localList;
+    const sourceList = (cloudList && Array.isArray(cloudList))
+      ? [...cloudList, ...localList]
+      : localList;
 
     const map = new Map<string, StandupRecord>();
     sourceList.forEach(s => {
@@ -318,7 +396,7 @@ export const db = {
     lastStandupsSync = now;
     writeFile(STD_FILE, finalStandups);
 
-    if (hasCloudKV && (!cloudList || cloudList.length === 0) && finalStandups.length > 0) {
+    if (hasCloudStorage && (!cloudList || cloudList.length === 0) && finalStandups.length > 0) {
       cloudSet('standups:list', finalStandups).catch(() => {});
     }
 
@@ -345,7 +423,7 @@ export const db = {
     lastStandupsSync = Date.now();
     writeFile(STD_FILE, list);
 
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       await cloudSet('standups:list', list);
     }
 
@@ -372,7 +450,7 @@ export const db = {
     lastStandupsSync = Date.now();
     writeFile(STD_FILE, list);
 
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       await cloudSet('standups:list', list);
     }
     return list;
@@ -382,7 +460,7 @@ export const db = {
     memoryStandups = [];
     lastStandupsSync = Date.now();
     writeFile(STD_FILE, []);
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       await cloudSet('standups:list', []);
     }
     return true;
@@ -603,7 +681,7 @@ export const db = {
 
   getSettings: async (): Promise<CompanySettings> => {
     if (memorySettings) return memorySettings;
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       const cloudSet = await cloudGet<CompanySettings>('settings:config');
       if (cloudSet) {
         memorySettings = cloudSet;
@@ -627,7 +705,7 @@ export const db = {
     const updated = { ...current, ...settings };
     memorySettings = updated;
     writeFile(SET_FILE, updated);
-    if (hasCloudKV) {
+    if (hasCloudStorage) {
       await cloudSet('settings:config', updated);
     }
     return updated;

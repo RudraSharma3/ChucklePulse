@@ -245,7 +245,10 @@ export default function StandupDashboard() {
     const parsedDate = new Date(dateStr);
     if (!isNaN(parsedDate.getTime())) {
       const pISO = parsedDate.toISOString().slice(0, 10);
-      return pISO === todayISO || pISO === todayLocal;
+      if (pISO === todayISO || pISO === todayLocal) return true;
+      if (now.getTime() - parsedDate.getTime() < 18 * 60 * 60 * 1000 && now.getTime() >= parsedDate.getTime()) {
+        return true;
+      }
     }
     return false;
   };

@@ -447,8 +447,9 @@ export const db = {
 
     try {
       const emps = await db.getEmployees();
+      const recEmail = record.email ? record.email.trim().toLowerCase() : '';
       const empIdx = emps.findIndex(e =>
-        e.email.trim().toLowerCase() === recEmail ||
+        (recEmail && recEmail !== 'team@bytepx.com' && e.email.trim().toLowerCase() === recEmail) ||
         (record.name && e.name.trim().toLowerCase() === record.name.trim().toLowerCase())
       );
       if (empIdx >= 0) {

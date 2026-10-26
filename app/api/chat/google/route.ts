@@ -349,6 +349,16 @@ export async function POST(req: NextRequest) {
         const cleanTsk = (draft && draft.tasks && draft.tasks !== 'General tasks') ? draft.tasks : `${selectedHours} hrs logged`;
         const availHrs = draft?.availableHours || 0;
         const totalAccounted = +(selectedHours + availHrs).toFixed(1);
+        let finalBlocker = draft ? draft.blocker : "None";
+        const gap = +(8.0 - totalAccounted).toFixed(1);
+        if (gap > 0) {
+          const gapText = `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`;
+          if (!finalBlocker || finalBlocker === "None") {
+            finalBlocker = gapText;
+          } else if (!finalBlocker.includes('unallocated') && !finalBlocker.includes('awaiting') && !finalBlocker.includes('Available')) {
+            finalBlocker = `${finalBlocker}, ${gapText}`;
+          }
+        }
 
         const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
         const record: StandupRecord = {
@@ -360,7 +370,7 @@ export async function POST(req: NextRequest) {
           tasks: cleanTsk,
           hours: selectedHours,
           project: cleanProj,
-          blocker: draft ? draft.blocker : "None",
+          blocker: finalBlocker,
           date: dateStr,
           time: timeStr,
           source: "Google Chat 1:1 Bot (Interactive)"
@@ -562,6 +572,19 @@ export async function POST(req: NextRequest) {
         return chatJson(formatChatResponse(hoursCard));
       }
 
+      const availHrs = (parsed.availableHours || 0) + (existingDraft.availableHours || 0);
+      const totalAccounted = +(chosenHours + availHrs).toFixed(1);
+      let finalBlocker = chosenBlocker || "None";
+      const gap = +(8.0 - totalAccounted).toFixed(1);
+      if (gap > 0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+        const gapText = `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`;
+        if (!finalBlocker || finalBlocker === "None") {
+          finalBlocker = gapText;
+        } else if (!finalBlocker.includes('unallocated') && !finalBlocker.includes('awaiting') && !finalBlocker.includes('Available')) {
+          finalBlocker = `${finalBlocker}, ${gapText}`;
+        }
+      }
+
       // Employee provided their hours! Save standup immediately
       const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
       const record: StandupRecord = {
@@ -574,15 +597,12 @@ export async function POST(req: NextRequest) {
         taskList: parsed.taskList,
         hours: chosenHours,
         project: chosenProject,
-        blocker: chosenBlocker,
+        blocker: finalBlocker,
         date: dateStr,
         time: timeStr,
         source: "Google Chat 1:1 Bot",
         rawText: cleanText
       };
-
-      const availHrs = (parsed.availableHours || 0) + (existingDraft.availableHours || 0);
-      const totalAccounted = +(chosenHours + availHrs).toFixed(1);
 
       await db.saveStandup(record);
       await db.clearPendingDraft(userKey, spaceName, userName);
@@ -636,6 +656,19 @@ export async function POST(req: NextRequest) {
     const finalProject = parsed.project || (parsed.tasks ? parsed.tasks.split(/[,;\n]/)[0].slice(0, 35) : 'Daily Tasks');
     const finalTasks = parsed.tasks || cleanText;
 
+    const availHrs = parsed.availableHours || 0;
+    const totalAccounted = +(finalHours + availHrs).toFixed(1);
+    let finalBlocker = parsed.blocker || "None";
+    const gap = +(8.0 - totalAccounted).toFixed(1);
+    if (gap > 0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const gapText = `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`;
+      if (!finalBlocker || finalBlocker === "None") {
+        finalBlocker = gapText;
+      } else if (!finalBlocker.includes('unallocated') && !finalBlocker.includes('awaiting') && !finalBlocker.includes('Available')) {
+        finalBlocker = `${finalBlocker}, ${gapText}`;
+      }
+    }
+
     const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
     const record: StandupRecord = {
       id: "std_" + Date.now(),
@@ -647,16 +680,12 @@ export async function POST(req: NextRequest) {
       taskList: parsed.taskList,
       hours: finalHours,
       project: finalProject,
-      blocker: parsed.blocker || "None",
+      blocker: finalBlocker,
       date: dateStr,
       time: timeStr,
       source: "Google Chat 1:1 Bot",
       rawText: cleanText
     };
-
-    // Check 8.0 hr workday shift requirement
-    const availHrs = parsed.availableHours || 0;
-    const totalAccounted = +(finalHours + availHrs).toFixed(1);
 
     // Save check-in immediately to database and cloud (user is now 100% recorded!)
     await db.saveStandup(record);

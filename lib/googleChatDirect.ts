@@ -713,6 +713,10 @@ export async function syncStandupsFromGoogleChat(): Promise<StandupRecord[]> {
                     }
                   }
                 }
+                if (hrs > 0 && hrs < 8.0 && (!blk || blk === 'None')) {
+                  const unallocated = +(8.0 - hrs).toFixed(1);
+                  blk = `${unallocated} hr${unallocated === 1 ? '' : 's'} unallocated / awaiting tasks`;
+                }
                 if (tsk || proj) {
                   const rec: StandupRecord = {
                     id: `std_${msgDate.getTime()}`,

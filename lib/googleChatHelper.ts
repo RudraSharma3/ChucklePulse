@@ -325,57 +325,12 @@ export function buildRemainingHoursCard(params: {
                 },
                 {
                   textParagraph: {
-                    text: `💡 <i>Our workday shift is 8.0 hrs. How would you like to allocate the remaining <b>${rem} hr${rem === 1 ? '' : 's'}</b>?</i>`
-                  }
-                },
-                {
-                  buttonList: {
-                    buttons: [
-                      {
-                        text: `+${rem}h Same Project (8.0h)`,
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitRemaining" },
-                              { key: "type", value: "same_project" },
-                              { key: "hours", value: String(rem) }
-                            ]
-                          }
-                        }
-                      },
-                      {
-                        text: `Standby / Bench (${rem}h)`,
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitRemaining" },
-                              { key: "type", value: "awaiting" },
-                              { key: "hours", value: String(rem) }
-                            ]
-                          }
-                        }
-                      },
-                      {
-                        text: `Half-Day Shift (${logged}h)`,
-                        onClick: {
-                          action: {
-                            function: endpointUrl,
-                            parameters: [
-                              { key: "actionName", value: "submitRemaining" },
-                              { key: "type", value: "half_day" },
-                              { key: "hours", value: String(rem) }
-                            ]
-                          }
-                        }
-                      }
-                    ]
+                    text: `💡 <i>Our standard workday shift is 8.0 hrs (9h office shift - 1h lunch).</i>`
                   }
                 },
                 {
                   textParagraph: {
-                    text: `💬 <b>Or simply reply in chat</b> with what you're doing for the remaining ${rem} hr${rem === 1 ? '' : 's'} (e.g. <i>"${rem}h on documentation"</i> or <i>"free / bench"</i>)!`
+                    text: `👉 <b>Please reply directly in chat with what you are doing for the remaining ${rem} hr${rem === 1 ? '' : 's'}:</b><br><br>• <b>Additional tasks:</b> e.g. <i>"${rem} hrs on testing and bug fixes"</i><br>• <b>Awaiting work:</b> e.g. <i>"free / bench"</i> or <i>"awaiting tasks"</i><br>• <b>Blocker:</b> e.g. <i>"blocker: waiting for client credentials"</i><br>• <b>Leave:</b> e.g. <i>"half day leave"</i>`
                   }
                 }
               ]

@@ -100,18 +100,7 @@ export default function StandupDashboard() {
       if (cachedStdRaw) {
         const parsed: StandupRecord[] = JSON.parse(cachedStdRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const normalized = parsed.map(s => {
-            if (!s) return s;
-            if (s.hours > 0 && s.hours < 8.0 && (!s.blocker || s.blocker === 'None') && !s.project?.toLowerCase().includes('leave') && !s.project?.toLowerCase().includes('awaiting')) {
-              const gap = +(8.0 - s.hours).toFixed(1);
-              return {
-                ...s,
-                blocker: `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`
-              };
-            }
-            return s;
-          });
-          setStandups(normalized);
+          setStandups(parsed);
           setLoading(false);
         }
       }
@@ -161,19 +150,7 @@ export default function StandupDashboard() {
         fetch("/api/settings", { cache: "no-store" }).then(r => r.json())
       ]);
 
-      let fetchedStandups: StandupRecord[] = Array.isArray(resStd)
-        ? resStd.map(s => {
-            if (!s) return s;
-            if (s.hours > 0 && s.hours < 8.0 && (!s.blocker || s.blocker === 'None') && !s.project?.toLowerCase().includes('leave') && !s.project?.toLowerCase().includes('awaiting')) {
-              const gap = +(8.0 - s.hours).toFixed(1);
-              return {
-                ...s,
-                blocker: `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`
-              };
-            }
-            return s;
-          })
-        : [];
+      let fetchedStandups: StandupRecord[] = Array.isArray(resStd) ? resStd : [];
       let fetchedEmployees: Employee[] = Array.isArray(resEmp)
         ? resEmp.map(e => {
             const em = (e.email || '').toLowerCase().trim();

@@ -244,19 +244,24 @@ function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; chan
   const seenEmails = new Map<string, Employee>();
   let changed = false;
 
-  const filtered = employees.filter(emp => {
-    if (!emp || !emp.email) return false;
-    const cleanEmail = emp.email.trim().toLowerCase();
-    if (cleanEmail === 'mala.das@bytepx.com' || cleanEmail === 'deepika.pal@bytepx.com') {
+  const normalized = (employees || []).map(emp => {
+    if (!emp) return emp;
+    let email = (emp.email || '').trim().toLowerCase();
+    const name = (emp.name || '').toLowerCase();
+    if (email === 'mala.das@bytepx.com' || name.includes('mala')) {
+      email = 'mala@bytepx.com';
       changed = true;
-      return false;
+    } else if (email === 'deepika.pal@bytepx.com' || name.includes('deepika')) {
+      email = 'deepika@bytepx.com';
+      changed = true;
+    } else if (email === 'rohit.gautam@bytepx.com' || name.includes('rohit')) {
+      email = 'rohit@bytepx.com';
+      changed = true;
     }
-    return true;
-  });
+    return { ...emp, email };
+  }).filter(Boolean);
 
-  if (filtered.length !== employees.length) changed = true;
-
-  filtered.forEach(emp => {
+  normalized.forEach(emp => {
     const cleanEmail = emp.email.trim().toLowerCase();
     if (!seenEmails.has(cleanEmail)) {
       seenEmails.set(cleanEmail, emp);
@@ -265,6 +270,15 @@ function sanitizeEmployees(employees: Employee[]): { employees: Employee[]; chan
       if (!existing.webhookUrl && emp.webhookUrl) {
         seenEmails.set(cleanEmail, { ...existing, webhookUrl: emp.webhookUrl });
       }
+      changed = true;
+    }
+  });
+
+  // Ensure all 7 canonical employees are always present in the list
+  DEFAULT_EMPLOYEES.forEach(def => {
+    const defEmail = def.email.toLowerCase().trim();
+    if (!seenEmails.has(defEmail)) {
+      seenEmails.set(defEmail, def);
       changed = true;
     }
   });
@@ -377,8 +391,9 @@ export const db = {
 
     const map = new Map<string, StandupRecord>();
     sourceList.forEach(s => {
-      if (!s || !s.email) return;
-      const key = `${s.email.trim().toLowerCase()}::${normalizeDate(s.date)}`;
+      if (!s) return;
+      const empIdent = (s.email && s.email.trim().toLowerCase() !== 'team@bytepx.com' ? s.email : (s.name || s.id || 'employee')).trim().toLowerCase();
+      const key = `${empIdent}::${normalizeDate(s.date)}`;
       if (!map.has(key)) {
         map.set(key, s);
       } else {
@@ -410,9 +425,12 @@ export const db = {
 
   saveStandup: async (record: StandupRecord): Promise<StandupRecord[]> => {
     const list = await db.getStandups();
-    const recEmail = record.email.trim().toLowerCase();
+    const recIdent = (record.email && record.email.trim().toLowerCase() !== 'team@bytepx.com' ? record.email : (record.name || record.id || 'employee')).trim().toLowerCase();
     const recDate = normalizeDate(record.date);
-    const idx = list.findIndex(s => s.email.trim().toLowerCase() === recEmail && normalizeDate(s.date) === recDate);
+    const idx = list.findIndex(s => {
+      const sIdent = (s.email && s.email.trim().toLowerCase() !== 'team@bytepx.com' ? s.email : (s.name || s.id || 'employee')).trim().toLowerCase();
+      return sIdent === recIdent && normalizeDate(s.date) === recDate;
+    });
     if (idx >= 0) {
       list[idx] = record;
     } else {

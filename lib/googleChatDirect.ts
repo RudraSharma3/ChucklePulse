@@ -614,13 +614,34 @@ export async function syncStandupsFromGoogleChat(): Promise<StandupRecord[]> {
     const todayUTC = now.toISOString().slice(0, 10);
     const updatedStandups: StandupRecord[] = [];
 
+    // Discover any unmapped spaces for employees
+    try {
+      const memberSpaceMap = await discoverAllSpacesAndMembers(token);
+      let empChanged = false;
+      for (const emp of employees) {
+        if (!emp.webhookUrl) {
+          const found =
+            memberSpaceMap.get(emp.email.toLowerCase().trim()) ||
+            memberSpaceMap.get(emp.name.toLowerCase().trim()) ||
+            memberSpaceMap.get(emp.name.toLowerCase().trim().split(' ')[0]);
+          if (found) {
+            emp.webhookUrl = found;
+            empChanged = true;
+          }
+        }
+      }
+      if (empChanged) {
+        await db.saveEmployees(employees);
+      }
+    } catch (discErr) {}
+
     for (const emp of employees) {
       const spaceName = emp.webhookUrl;
       if (!spaceName || !spaceName.startsWith('spaces/')) continue;
       const cleanSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
 
       try {
-        const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=15&orderBy=createTime%20DESC`, {
+        const res = await fetch(`https://chat.googleapis.com/v1/${cleanSpace}/messages?pageSize=20&orderBy=createTime%20DESC`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         if (!res.ok) continue;
@@ -637,8 +658,8 @@ export async function syncStandupsFromGoogleChat(): Promise<StandupRecord[]> {
           const isToday = msgLocal === todayLocal || msgUTC === todayUTC || (now.getTime() - msgDate.getTime() < 18 * 60 * 60 * 1000);
           if (!isToday) continue;
 
-          // If human sent a standup message
-          if ((msg.sender?.type === 'HUMAN' || msg.sender?.type === 'USER') && msg.text) {
+          // Branch A: Human typed standup message
+          if ((msg.sender?.type === 'HUMAN' || msg.sender?.type === 'USER' || !msg.sender?.name?.includes('app/')) && msg.text) {
             const cleanText = msg.text.replace(/^<users\/[^>]+>\s*/i, '').replace(/^@[\w\s.-]+\s*/i, '').trim();
             if (cleanText.length >= 3 && !['hi', 'hello', 'hey', 'help'].includes(cleanText.toLowerCase())) {
               const { parseStandupMessage } = await import('./parser');
@@ -665,6 +686,56 @@ export async function syncStandupsFromGoogleChat(): Promise<StandupRecord[]> {
                 break;
               }
             }
+          }
+
+          // Branch B: Bot confirmation card posted for an interactive submission
+          if (msg.cardsV2 && Array.isArray(msg.cardsV2)) {
+            let foundCard = false;
+            for (const c of msg.cardsV2) {
+              const cardTitle = c.card?.header?.title || '';
+              if (cardTitle.includes('Standup Logged') || cardTitle.includes('Standup Recorded') || cardTitle.includes('Standup Updated')) {
+                let proj = '';
+                let tsk = '';
+                let hrs = 8;
+                let blk = 'None';
+                const sections = c.card?.sections || [];
+                for (const sec of sections) {
+                  for (const w of sec.widgets || []) {
+                    const txt = w.textParagraph?.text || '';
+                    if (txt.includes('Project:')) proj = txt.replace(/<[^>]+>/g, '').replace(/.*Project:\s*/i, '').trim();
+                    if (txt.includes('Tasks:')) tsk = txt.replace(/<[^>]+>/g, '').replace(/.*Tasks:\s*/i, '').trim();
+                    if (txt.includes('Hours:')) {
+                      const hMatch = txt.match(/([\d.]+)\s*hrs/i);
+                      if (hMatch) hrs = parseFloat(hMatch[1]) || 8;
+                    }
+                    if (txt.includes('Blocker')) {
+                      blk = txt.includes('None') ? 'None' : txt.replace(/<[^>]+>/g, '').replace(/.*Blocker[^:]*:\s*/i, '').trim();
+                    }
+                  }
+                }
+                if (tsk || proj) {
+                  const rec: StandupRecord = {
+                    id: `std_${msgDate.getTime()}`,
+                    employeeId: emp.id,
+                    name: emp.name,
+                    email: emp.email,
+                    dept: emp.dept || 'Engineering',
+                    tasks: tsk || 'Standup updates logged',
+                    hours: hrs,
+                    project: proj || 'Daily Tasks',
+                    blocker: blk,
+                    date: msgLocal,
+                    time: msgDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata', hour12: true }),
+                    source: "Google Chat 1:1 Bot"
+                  };
+                  await db.saveStandup(rec);
+                  updatedStandups.push(rec);
+                  foundCard = true;
+                  break;
+                }
+              }
+            }
+            if (foundCard) break;
           }
         }
       } catch (e) {}

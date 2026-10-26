@@ -108,11 +108,14 @@ export default function StandupDashboard() {
       if (cachedEmpRaw) {
         const parsed: Employee[] = JSON.parse(cachedEmpRaw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = parsed.filter(e => {
+          const normalized = parsed.map(e => {
             const em = (e.email || '').toLowerCase().trim();
-            return em !== 'mala.das@bytepx.com' && em !== 'deepika.pal@bytepx.com';
+            if (em === 'mala.das@bytepx.com') return { ...e, email: 'mala@bytepx.com' };
+            if (em === 'deepika.pal@bytepx.com') return { ...e, email: 'deepika@bytepx.com' };
+            if (em === 'rohit.gautam@bytepx.com') return { ...e, email: 'rohit@bytepx.com' };
+            return e;
           });
-          setEmployees(cleaned);
+          setEmployees(normalized);
         }
       }
     } catch (e) {}
@@ -149,9 +152,12 @@ export default function StandupDashboard() {
 
       let fetchedStandups: StandupRecord[] = Array.isArray(resStd) ? resStd : [];
       let fetchedEmployees: Employee[] = Array.isArray(resEmp)
-        ? resEmp.filter(e => {
+        ? resEmp.map(e => {
             const em = (e.email || '').toLowerCase().trim();
-            return em !== 'mala.das@bytepx.com' && em !== 'deepika.pal@bytepx.com';
+            if (em === 'mala.das@bytepx.com') return { ...e, email: 'mala@bytepx.com' };
+            if (em === 'deepika.pal@bytepx.com') return { ...e, email: 'deepika@bytepx.com' };
+            if (em === 'rohit.gautam@bytepx.com') return { ...e, email: 'rohit@bytepx.com' };
+            return e;
           })
         : [];
 
@@ -163,14 +169,16 @@ export default function StandupDashboard() {
           if (Array.isArray(cachedStds) && cachedStds.length > 0) {
             const stdMap = new Map<string, StandupRecord>();
             fetchedStandups.forEach(s => {
-              if (s && s.email) {
-                const key = `${s.email.trim().toLowerCase()}::${s.date || 'today'}`;
+              if (s) {
+                const ident = (s.email && s.email.trim().toLowerCase() !== 'team@bytepx.com' ? s.email : (s.name || s.id || 'employee')).trim().toLowerCase();
+                const key = `${ident}::${s.date || 'today'}`;
                 stdMap.set(key, s);
               }
             });
             cachedStds.forEach(s => {
-              if (s && s.email) {
-                const key = `${s.email.trim().toLowerCase()}::${s.date || 'today'}`;
+              if (s) {
+                const ident = (s.email && s.email.trim().toLowerCase() !== 'team@bytepx.com' ? s.email : (s.name || s.id || 'employee')).trim().toLowerCase();
+                const key = `${ident}::${s.date || 'today'}`;
                 if (!stdMap.has(key)) {
                   stdMap.set(key, s);
                 }
@@ -258,8 +266,9 @@ export default function StandupDashboard() {
     const rawList = dateFilter === "today" ? standups.filter(s => isTodayDate(s.date)) : standups;
     const uniqueMap = new Map<string, StandupRecord>();
     rawList.forEach(s => {
-      if (!s || !s.email) return;
-      const key = `${s.email.trim().toLowerCase()}::${s.date || 'today'}`;
+      if (!s) return;
+      const ident = (s.email && s.email.trim().toLowerCase() !== 'team@bytepx.com' ? s.email : (s.name || s.id || 'employee')).trim().toLowerCase();
+      const key = `${ident}::${s.date || 'today'}`;
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, s);
       } else {

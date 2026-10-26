@@ -6,12 +6,19 @@ import { formatLocalTime, formatLocalDate } from "@/lib/googleChatHelper";
 
 import { isStandupForToday } from "@/lib/googleChatDirect";
 
+let lastSyncAttempt = 0;
+
 export async function GET(req: NextRequest) {
   let list = await db.getStandups();
 
-  // If local list has 0 entries from today, attempt automatic hydration from Google Chat!
-  const hasToday = list.some(s => isStandupForToday(s.date));
-  if (!hasToday) {
+  // If sync is requested or if today has missing team members and last sync was > 15s ago
+  const syncRequested = req.nextUrl.searchParams.get('sync') === 'true';
+  const now = Date.now();
+  const employees = db.getEmployeesSync();
+  const todayRecords = list.filter(s => isStandupForToday(s.date));
+
+  if (syncRequested || (todayRecords.length < employees.length && now - lastSyncAttempt > 15000)) {
+    lastSyncAttempt = now;
     try {
       const { syncStandupsFromGoogleChat } = await import("@/lib/googleChatDirect");
       const synced = await syncStandupsFromGoogleChat();

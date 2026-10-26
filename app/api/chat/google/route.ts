@@ -41,14 +41,28 @@ function extractInputValue(obj: any): string {
   return '';
 }
 
-function resolveEmployeeIdentity(userName: string, userEmail: string) {
+function resolveEmployeeIdentity(userName: string, userEmail: string, spaceName?: string) {
   const list = db.getEmployeesSync();
   const uEmail = (userEmail || "").toLowerCase().trim();
   const uName = (userName || "").toLowerCase().trim();
   const uFirst = uName.split(' ')[0];
   const uPrefix = uEmail.split('@')[0];
 
-  const matched = list.find(e => {
+  // 1. Direct match by spaceName if known 1:1 space
+  if (spaceName) {
+    const spaceMatch = list.find(e => e.webhookUrl && e.webhookUrl.trim() === spaceName.trim());
+    if (spaceMatch) {
+      return {
+        employeeId: spaceMatch.id,
+        name: spaceMatch.name,
+        email: spaceMatch.email,
+        dept: spaceMatch.dept
+      };
+    }
+  }
+
+  // 2. Canonical matching against registered employees
+  let matched = list.find(e => {
     const eEmail = (e.email || "").toLowerCase().trim();
     const eName = (e.name || "").toLowerCase().trim();
     const eFirst = eName.split(' ')[0];
@@ -61,10 +75,32 @@ function resolveEmployeeIdentity(userName: string, userEmail: string) {
     return false;
   });
 
+  if (!matched) {
+    if (uName.includes('rudra') || uEmail.includes('rudra')) matched = list.find(e => e.id === 'emp_2');
+    else if (uName.includes('tanmay') || uEmail.includes('tanmay')) matched = list.find(e => e.id === 'emp_1');
+    else if (uName.includes('pavana') || uEmail.includes('pavana')) matched = list.find(e => e.id === 'emp_3');
+    else if (uName.includes('prerna') || uEmail.includes('prerna')) matched = list.find(e => e.id === 'emp_4');
+    else if (uName.includes('rohit') || uEmail.includes('rohit')) matched = list.find(e => e.id === 'emp_5');
+    else if (uName.includes('mala') || uEmail.includes('mala')) matched = list.find(e => e.id === 'emp_6');
+    else if (uName.includes('deepika') || uEmail.includes('deepika')) matched = list.find(e => e.id === 'emp_7');
+  }
+
+  const finalName = matched?.name || userName || 'Team Member';
+  const finalEmail = matched?.email || userEmail || (
+    uName.includes('rudra') ? 'rudra@bytepx.com' :
+    uName.includes('tanmay') ? 'tanmay.jain@bytepx.com' :
+    uName.includes('pavana') ? 'pavana@bytepx.com' :
+    uName.includes('prerna') ? 'prerna@bytepx.com' :
+    uName.includes('rohit') ? 'rohit@bytepx.com' :
+    uName.includes('mala') ? 'mala@bytepx.com' :
+    uName.includes('deepika') ? 'deepika@bytepx.com' :
+    (finalName !== 'Team Member' ? `${finalName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@bytepx.com` : 'team@bytepx.com')
+  );
+
   return {
     employeeId: matched?.id || null,
-    name: matched?.name || userName,
-    email: matched?.email || userEmail || "team@bytepx.com",
+    name: finalName,
+    email: finalEmail,
     dept: matched?.dept || "Engineering"
   };
 }
@@ -73,12 +109,31 @@ function resolveEmployeeIdentity(userName: string, userEmail: string) {
 const processedEventIds = new Map<string, number>();
 
 function isDuplicateWebhook(event: any): boolean {
-  const eventId =
+  // Deduplicate strictly by message name or user-scoped action/timestamp
+  const messageName =
     event.message?.name ||
-    event.chat?.messagePayload?.message?.name ||
-    event.action?.actionMethodName ||
-    event.commonEventObject?.hostAppActionId ||
-    (event.eventTime && event.user?.name ? `${event.eventTime}::${event.user.name}` : null);
+    event.chat?.messagePayload?.message?.name;
+
+  const userIdent =
+    event.user?.name ||
+    event.chat?.user?.name ||
+    event.chat?.messagePayload?.message?.sender?.name ||
+    event.commonEventObject?.userName ||
+    event.user?.displayName ||
+    '';
+
+  const eventTime = event.eventTime || '';
+
+  let eventId: string | null = null;
+  if (messageName) {
+    eventId = `msg::${messageName}`;
+  } else if (userIdent && eventTime) {
+    eventId = `evt::${userIdent}::${eventTime}`;
+  } else if (userIdent && (event.action?.actionMethodName || event.commonEventObject?.invokedFunction)) {
+    const action = event.action?.actionMethodName || event.commonEventObject?.invokedFunction;
+    const bucket = Math.floor(Date.now() / 3000); // 3-second debounce window scoped to this specific user
+    eventId = `act::${userIdent}::${action}::${bucket}`;
+  }
 
   if (!eventId) return false;
   const now = Date.now();
@@ -146,6 +201,9 @@ export async function POST(req: NextRequest) {
     userName.toLowerCase().includes('tanmay') ? 'tanmay.jain@bytepx.com' :
     userName.toLowerCase().includes('pavana') ? 'pavana@bytepx.com' :
     userName.toLowerCase().includes('prerna') ? 'prerna@bytepx.com' :
+    userName.toLowerCase().includes('rohit') ? 'rohit@bytepx.com' :
+    userName.toLowerCase().includes('mala') ? 'mala@bytepx.com' :
+    userName.toLowerCase().includes('deepika') ? 'deepika@bytepx.com' :
     (userName && userName !== 'Team Member' ? `${userName.toLowerCase().trim().replace(/\s+/g, '.')}@bytepx.com` : '')
   );
 
@@ -292,7 +350,7 @@ export async function POST(req: NextRequest) {
         const availHrs = draft?.availableHours || 0;
         const totalAccounted = +(selectedHours + availHrs).toFixed(1);
 
-        const empInfo = resolveEmployeeIdentity(userName, userEmail);
+        const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
         const record: StandupRecord = {
           id: "std_" + Date.now(),
           employeeId: empInfo.employeeId,
@@ -505,7 +563,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Employee provided their hours! Save standup immediately
-      const empInfo = resolveEmployeeIdentity(userName, userEmail);
+      const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
       const record: StandupRecord = {
         id: "std_" + Date.now(),
         employeeId: empInfo.employeeId,
@@ -578,7 +636,7 @@ export async function POST(req: NextRequest) {
     const finalProject = parsed.project || (parsed.tasks ? parsed.tasks.split(/[,;\n]/)[0].slice(0, 35) : 'Daily Tasks');
     const finalTasks = parsed.tasks || cleanText;
 
-    const empInfo = resolveEmployeeIdentity(userName, userEmail);
+    const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
     const record: StandupRecord = {
       id: "std_" + Date.now(),
       employeeId: empInfo.employeeId,

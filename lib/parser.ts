@@ -370,19 +370,6 @@ export function parseStandupMessage(text: string): {
 
   const taskList = extractStructuredTasks(tasks);
 
-  // If employee has a shift capacity shortfall (< 8.0 hrs), automatically capture unallocated hours into blocker
-  if (hours > 0 && hours < 8.0 && !isOnLeave && !isAwaitingTask) {
-    const unallocated = +(8.0 - hours).toFixed(1);
-    if (unallocated > 0) {
-      const gapText = `${unallocated} hr${unallocated === 1 ? '' : 's'} unallocated / awaiting tasks`;
-      if (!blocker || blocker === "None") {
-        blocker = gapText;
-      } else if (!blocker.includes('unallocated') && !blocker.includes('awaiting') && !blocker.includes('Available')) {
-        blocker = `${blocker}, ${gapText}`;
-      }
-    }
-  }
-
   return {
     project: project || "Daily Tasks",
     hours,

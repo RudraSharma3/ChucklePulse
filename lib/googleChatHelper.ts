@@ -302,14 +302,16 @@ export function buildRemainingHoursCard(params: {
       ? `📝 <b>Logged so far:</b> ${logged} hrs on <b>${cleanProject}</b>${cleanTasks && cleanTasks !== cleanProject ? ` (${cleanTasks})` : ''}`
       : `📝 <b>Logged so far:</b> ${logged} hrs${cleanTasks ? ` (${cleanTasks})` : ''}`);
 
+  const endpointUrl = process.env.GOOGLE_CHAT_ENDPOINT_URL || "https://chuckle-pulse.vercel.app/api/chat/google";
+
   return {
     cardsV2: [
       {
         cardId: `capacity-${Date.now()}`,
         card: {
           header: {
-            title: `⏰ Daily Capacity Check (${totalAccounted} / 8.0 hrs)`,
-            subtitle: headerSubtitle,
+            title: `⏰ What about the remaining ${rem} hr${rem === 1 ? '' : 's'}?`,
+            subtitle: `Logged ${logged} hrs so far (${totalAccounted} / 8.0 hrs workday shift)`,
             imageUrl: BOT_ICON_URL,
             imageType: "CIRCLE"
           },
@@ -323,12 +325,57 @@ export function buildRemainingHoursCard(params: {
                 },
                 {
                   textParagraph: {
-                    text: `💡 <i>Our workday is 8.0 hrs (9h office shift - 1h lunch).</i>`
+                    text: `💡 <i>Our workday shift is 8.0 hrs. How would you like to allocate the remaining <b>${rem} hr${rem === 1 ? '' : 's'}</b>?</i>`
+                  }
+                },
+                {
+                  buttonList: {
+                    buttons: [
+                      {
+                        text: `+${rem}h Same Project (8.0h)`,
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitRemaining" },
+                              { key: "type", value: "same_project" },
+                              { key: "hours", value: String(rem) }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: `Standby / Bench (${rem}h)`,
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitRemaining" },
+                              { key: "type", value: "awaiting" },
+                              { key: "hours", value: String(rem) }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        text: `Half-Day Shift (${logged}h)`,
+                        onClick: {
+                          action: {
+                            function: endpointUrl,
+                            parameters: [
+                              { key: "actionName", value: "submitRemaining" },
+                              { key: "type", value: "half_day" },
+                              { key: "hours", value: String(rem) }
+                            ]
+                          }
+                        }
+                      }
+                    ]
                   }
                 },
                 {
                   textParagraph: {
-                    text: `👉 <b>Please reply directly in chat with what tasks you are doing for the remaining ${rem} hours.</b><br><br><i>Example: "${rem} hours on bug fixes and documentation" or "${rem}h on feature testing"</i>`
+                    text: `💬 <b>Or simply reply in chat</b> with what you're doing for the remaining ${rem} hr${rem === 1 ? '' : 's'} (e.g. <i>"${rem}h on documentation"</i> or <i>"free / bench"</i>)!`
                   }
                 }
               ]

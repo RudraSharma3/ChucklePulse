@@ -4,6 +4,7 @@ import {
   buildStandupPromptCard,
   buildStandupConfirmationCard,
   buildHoursRequestCard,
+  buildRemainingHoursCard,
   buildNonWorkActivityCard,
   buildInteractiveCard,
   buildSuccessCard,
@@ -349,16 +350,7 @@ export async function POST(req: NextRequest) {
         const cleanTsk = (draft && draft.tasks && draft.tasks !== 'General tasks') ? draft.tasks : `${selectedHours} hrs logged`;
         const availHrs = draft?.availableHours || 0;
         const totalAccounted = +(selectedHours + availHrs).toFixed(1);
-        let finalBlocker = draft ? draft.blocker : "None";
-        const gap = +(8.0 - totalAccounted).toFixed(1);
-        if (gap > 0) {
-          const gapText = `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`;
-          if (!finalBlocker || finalBlocker === "None") {
-            finalBlocker = gapText;
-          } else if (!finalBlocker.includes('unallocated') && !finalBlocker.includes('awaiting') && !finalBlocker.includes('Available')) {
-            finalBlocker = `${finalBlocker}, ${gapText}`;
-          }
-        }
+        const finalBlocker = draft ? draft.blocker : "None";
 
         const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
         const record: StandupRecord = {
@@ -377,6 +369,27 @@ export async function POST(req: NextRequest) {
         };
 
         await db.saveStandup(record);
+
+        if (selectedHours < 8.0) {
+          await db.savePendingDraft(userKey, {
+            tasks: cleanTsk,
+            project: cleanProj,
+            hours: selectedHours,
+            blocker: finalBlocker,
+            date: dateStr
+          }, spaceName, userName);
+
+          const rem = +(8.0 - selectedHours).toFixed(1);
+          const capacityCard = buildRemainingHoursCard({
+            userName: firstName,
+            project: cleanProj,
+            tasks: cleanTsk,
+            loggedHours: selectedHours,
+            remainingHours: rem
+          });
+          return chatJson(formatChatResponse(capacityCard, { isCardAction: true }));
+        }
+
         await db.clearPendingDraft(userKey, spaceName, userName);
 
         const confirmationCard = buildStandupConfirmationCard({
@@ -574,16 +587,7 @@ export async function POST(req: NextRequest) {
 
       const availHrs = (parsed.availableHours || 0) + (existingDraft.availableHours || 0);
       const totalAccounted = +(chosenHours + availHrs).toFixed(1);
-      let finalBlocker = chosenBlocker || "None";
-      const gap = +(8.0 - totalAccounted).toFixed(1);
-      if (gap > 0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-        const gapText = `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`;
-        if (!finalBlocker || finalBlocker === "None") {
-          finalBlocker = gapText;
-        } else if (!finalBlocker.includes('unallocated') && !finalBlocker.includes('awaiting') && !finalBlocker.includes('Available')) {
-          finalBlocker = `${finalBlocker}, ${gapText}`;
-        }
-      }
+      const finalBlocker = chosenBlocker || "None";
 
       // Employee provided their hours! Save standup immediately
       const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
@@ -605,6 +609,28 @@ export async function POST(req: NextRequest) {
       };
 
       await db.saveStandup(record);
+
+      if (chosenHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+        await db.savePendingDraft(userKey, {
+          tasks: chosenTasks,
+          project: chosenProject,
+          hours: chosenHours,
+          blocker: finalBlocker,
+          date: dateStr
+        }, spaceName, userName);
+
+        const rem = +(8.0 - chosenHours).toFixed(1);
+        const capacityCard = buildRemainingHoursCard({
+          userName: firstName,
+          project: chosenProject,
+          tasks: chosenTasks,
+          loggedHours: chosenHours,
+          remainingHours: rem,
+          availableHours: availHrs
+        });
+        return chatJson(formatChatResponse(capacityCard));
+      }
+
       await db.clearPendingDraft(userKey, spaceName, userName);
 
       const confirmationCard = buildStandupConfirmationCard({
@@ -657,17 +683,7 @@ export async function POST(req: NextRequest) {
     const finalTasks = parsed.tasks || cleanText;
 
     const availHrs = parsed.availableHours || 0;
-    const totalAccounted = +(finalHours + availHrs).toFixed(1);
-    let finalBlocker = parsed.blocker || "None";
-    const gap = +(8.0 - totalAccounted).toFixed(1);
-    if (gap > 0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
-      const gapText = `${gap} hr${gap === 1 ? '' : 's'} unallocated / awaiting tasks`;
-      if (!finalBlocker || finalBlocker === "None") {
-        finalBlocker = gapText;
-      } else if (!finalBlocker.includes('unallocated') && !finalBlocker.includes('awaiting') && !finalBlocker.includes('Available')) {
-        finalBlocker = `${finalBlocker}, ${gapText}`;
-      }
-    }
+    const finalBlocker = parsed.blocker || "None";
 
     const empInfo = resolveEmployeeIdentity(userName, userEmail, spaceName);
     const record: StandupRecord = {
@@ -687,8 +703,32 @@ export async function POST(req: NextRequest) {
       rawText: cleanText
     };
 
-    // Save check-in immediately to database and cloud (user is now 100% recorded!)
+    // Save check-in immediately to database and cloud so their data is live on the dashboard!
     await db.saveStandup(record);
+
+    // If logged hours < 8.0 hrs (and not on leave or awaiting task), prompt about remaining hours!
+    if (finalHours > 0 && finalHours < 8.0 && !parsed.isOnLeave && !parsed.isAwaitingTask) {
+      const remHours = +(8.0 - finalHours).toFixed(1);
+      await db.savePendingDraft(userKey, {
+        tasks: finalTasks,
+        project: finalProject,
+        hours: finalHours,
+        blocker: finalBlocker,
+        date: dateStr
+      }, spaceName, userName);
+
+      const capacityCard = buildRemainingHoursCard({
+        userName: firstName,
+        project: finalProject,
+        tasks: finalTasks,
+        loggedHours: finalHours,
+        remainingHours: remHours,
+        availableHours: availHrs
+      });
+
+      return chatJson(formatChatResponse(capacityCard));
+    }
+
     await db.clearPendingDraft(userKey, spaceName, userName);
 
     // Return Standup Confirmation Card directly
